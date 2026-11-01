@@ -63,7 +63,7 @@ function isPublic(req: express.Request) {
     [
       '/api/state', '/api/events', '/api/matches', '/api/history', '/api/stats', '/api/widgets',
       '/login.html', '/css/editor.css', '/js/render.js', '/js/loader.js', '/js/i18n.js',
-      '/favicon.svg', '/logo.svg',
+      '/favicon.svg', '/logo.svg', '/logo-wordmark.svg',
     ].includes(req.path)
   );
 }

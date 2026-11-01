@@ -15,7 +15,6 @@
   --f-display: 'Chakra Petch', 'Rajdhani', 'Segoe UI', system-ui, sans-serif;
   --f-body: 'Barlow', 'Segoe UI', system-ui, sans-serif;
   --f-mono: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', Consolas, monospace;
-  --f-brand: 'Segoe UI', system-ui, -apple-system, Roboto, 'Helvetica Neue', Arial, sans-serif;
   color-scheme: dark;
 }
 
@@ -47,10 +46,9 @@ header {
 }
 .head-left { display: flex; align-items: center; gap: 14px; min-width: 0; }
 
-.brand { display: flex; align-items: center; gap: 9px; font: 800 19px/1 var(--f-brand); letter-spacing: -.01em; }
-.brand b { font-weight: inherit; }
+.brand { display: flex; align-items: center; gap: 9px; }
+.brand-word { display: block; width: 126px; height: 18px; }
 .brand-mark { width: 30px; height: 30px; }
-.brand span { color: var(--accent); }
 /* Logo wie auf der Website: beim Überfahren scoped das Fadenkreuz rein (Zoom mit kurzem Nachfedern) */
 .brand-mark { flex: none; transition: transform .35s cubic-bezier(.2, .8, .3, 1), filter .35s; transform-origin: 50% 50%; }
 .brand:hover .brand-mark { transform: scale(1.28); filter: drop-shadow(0 0 6px rgba(255, 85, 0, .7)); animation: scope-in .45s cubic-bezier(.2, .8, .3, 1); }
@@ -257,8 +255,7 @@ body > main { flex: 1; height: auto; min-height: 0; }
 .i-core { opacity: 0; animation: intro-fade .4s ease .3s forwards; }
 .i-arrow { stroke-dasharray: 100; stroke-dashoffset: 100; animation: intro-draw .45s ease-out .65s forwards; }
 .i-head { opacity: 0; transform: translate(-6px, 6px); animation: intro-pop .3s ease-out 1s forwards; }
-.intro-word { font: 800 30px/1 var(--f-brand); letter-spacing: -.01em; color: var(--text); opacity: 0; animation: intro-rise .5s ease .75s forwards; }
-.intro-word span { color: var(--accent); }
+.intro-word { display: block; width: 199px; height: 28px; opacity: 0; animation: intro-rise .5s ease .75s forwards; }
 .intro-bar { width: 160px; height: 2px; background: var(--border); border-radius: 2px; overflow: hidden; opacity: 0; animation: intro-fade .3s ease .8s forwards; }
 .intro-bar i { display: block; height: 100%; width: 100%; background: var(--accent); box-shadow: 0 0 10px rgba(255, 85, 0, .45); transform-origin: left; transform: scaleX(var(--p, .1)); transition: transform .35s ease; }
 @keyframes intro-draw { to { stroke-dashoffset: 0; } }
