@@ -43,7 +43,7 @@
       <p class="msg" id="msg" role="alert"></p>
     </form>
     <script type="module">
-      import { initLangSelect, setText } from '/js/i18n.js';
+      import { getLang, initLangSelect, setText } from '/js/i18n.js';
 
       const $ = (id) => document.getElementById(id);
       const show = (key, info) => {
@@ -55,9 +55,15 @@
       // Nur Pfade auf diesem Server als Ziel zulassen
       let next = new URLSearchParams(location.search).get('next') || '';
       if (!/^\/(?![\/\\])/.test(next)) next = '/editor.html';
+      // Mit der hier gewählten Sprache weiter
+      const go = () => {
+        const url = new URL(next, location.origin);
+        url.searchParams.set('lang', getLang());
+        location.replace(url.pathname + url.search + url.hash);
+      };
 
       const me = await fetch('/api/me').then((r) => r.json()).catch(() => null);
-      if (me?.user) location.replace(next);
+      if (me?.user) go();
       else if (me && !me.loginEnabled) show('loginDisabled', true);
 
       $('loginForm').addEventListener('submit', async (e) => {
@@ -69,7 +75,7 @@
         show(null);
         try {
           const r = await fetch('/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ user, password }) });
-          if (r.ok) return location.replace(next);
+          if (r.ok) return go();
           show(r.status === 429 ? 'loginLocked' : r.status === 503 ? 'loginDisabled' : 'loginWrong');
           $('password').value = '';
         } catch {

@@ -63,11 +63,12 @@ function setupPickerDrag() {
   const bar = $('overlayPicker');
   const area = bar.parentElement;
   const place = (x, y) => {
-    // Ausgeblendet (Statistik-Tab) gibt es keine Maße, dann nicht begrenzen
+    // Ausgeblendet (Statistik-Tab) oder schmal (Leiste fest im Fluss) gibt es keine passenden Maße, dann nicht begrenzen
+    const free = area.clientWidth && getComputedStyle(bar).position === 'absolute';
     // Rechts nicht unter die Ansichten-Leiste schieben (dafür hat der Bereich breiten Innenabstand)
     const pad = parseFloat(getComputedStyle(area).paddingRight);
-    const maxX = area.clientWidth ? area.clientWidth - (pad > 24 ? pad : 0) - bar.offsetWidth : Infinity;
-    const maxY = area.clientHeight ? area.clientHeight - bar.offsetHeight : Infinity;
+    const maxX = free ? area.clientWidth - (pad > 24 ? pad : 0) - bar.offsetWidth : Infinity;
+    const maxY = free ? area.clientHeight - bar.offsetHeight : Infinity;
     bar.style.left = `${Math.round(Math.max(0, Math.min(x, maxX)))}px`;
     bar.style.top = `${Math.round(Math.max(0, Math.min(y, maxY)))}px`;
     bar.style.right = 'auto';
@@ -77,7 +78,10 @@ function setupPickerDrag() {
     saved = JSON.parse(localStorage.getItem('fw-picker-pos'));
   } catch {}
   if (saved) place(saved.x, saved.y);
-  addEventListener('resize', () => bar.style.left && place(bar.offsetLeft, bar.offsetTop));
+  addEventListener('resize', () => {
+    // Nur begrenzen, wenn die Leiste frei steht und sichtbar ist, sonst ginge die gespeicherte Position verloren
+    if (bar.style.left && area.clientWidth && getComputedStyle(bar).position === 'absolute') place(bar.offsetLeft, bar.offsetTop);
+  });
 
   bar.querySelector('.picker-grip').addEventListener('pointerdown', (e) => {
     if (e.button !== 0 || getComputedStyle(bar).position !== 'absolute') return;
