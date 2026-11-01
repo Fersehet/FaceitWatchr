@@ -58,6 +58,51 @@ function drawPreview() {
   renderOverlay(preview, overlay, state, { editable: true, selectedId });
 }
 
+/** Overlay-Leiste über dem Vorschaubereich mit der Maus am Griff verschieben, Position bleibt gespeichert. */
+function setupPickerDrag() {
+  const bar = $('overlayPicker');
+  const area = bar.parentElement;
+  const place = (x, y) => {
+    // Ausgeblendet (Statistik-Tab) oder schmal (Leiste fest im Fluss) gibt es keine passenden Maße, dann nicht begrenzen
+    const free = area.clientWidth && getComputedStyle(bar).position === 'absolute';
+    // Rechts nicht unter die Ansichten-Leiste schieben (dafür hat der Bereich breiten Innenabstand)
+    const pad = parseFloat(getComputedStyle(area).paddingRight);
+    const maxX = free ? area.clientWidth - (pad > 24 ? pad : 0) - bar.offsetWidth : Infinity;
+    const maxY = free ? area.clientHeight - bar.offsetHeight : Infinity;
+    bar.style.left = `${Math.round(Math.max(0, Math.min(x, maxX)))}px`;
+    bar.style.top = `${Math.round(Math.max(0, Math.min(y, maxY)))}px`;
+    bar.style.right = 'auto';
+  };
+  let saved = null;
+  try {
+    saved = JSON.parse(localStorage.getItem('fw-picker-pos'));
+  } catch {}
+  if (saved) place(saved.x, saved.y);
+  addEventListener('resize', () => {
+    // Nur begrenzen, wenn die Leiste frei steht und sichtbar ist, sonst ginge die gespeicherte Position verloren
+    if (bar.style.left && area.clientWidth && getComputedStyle(bar).position === 'absolute') place(bar.offsetLeft, bar.offsetTop);
+  });
+
+  bar.querySelector('.picker-grip').addEventListener('pointerdown', (e) => {
+    if (e.button !== 0 || getComputedStyle(bar).position !== 'absolute') return;
+    e.preventDefault();
+    const dx = e.clientX - bar.offsetLeft;
+    const dy = e.clientY - bar.offsetTop;
+    bar.classList.add('dragging');
+    const move = (ev) => place(ev.clientX - dx, ev.clientY - dy);
+    const up = () => {
+      bar.classList.remove('dragging');
+      removeEventListener('pointermove', move);
+      removeEventListener('pointerup', up);
+      try {
+        localStorage.setItem('fw-picker-pos', JSON.stringify({ x: bar.offsetLeft, y: bar.offsetTop }));
+      } catch {}
+    };
+    addEventListener('pointermove', move);
+    addEventListener('pointerup', up);
+  });
+}
+
 function setupDragging() {
   const preview = $('preview');
   let drag = null;
@@ -353,7 +398,7 @@ function renderStyleForm() {
       select.addEventListener('change', () => set(select.value));
       form.appendChild(field(label, select));
     } else if (type === 'checkbox') {
-      form.appendChild(field(label, input('checkbox', !!overlay.style[key], set)));
+      form.appendChild(field(label, input('checkbox', !!overlay.style[key], set), 'full'));
     } else {
       const node = input(type, overlay.style[key], set, attrs);
       if (key === 'statsCycleSeconds') node.disabled = (overlay.style.statsPeriod ?? 'cycle') !== 'cycle';
@@ -565,6 +610,7 @@ async function init() {
     await openOverlay(overlays.some((o) => o.id === remembered) ? remembered : overlays[0].id);
   });
   setupDragging();
+  setupPickerDrag();
 
   $('overlaySelect').addEventListener('change', (e) => busy(openOverlay(e.target.value)));
   $('overlayName').addEventListener('input', (e) => {

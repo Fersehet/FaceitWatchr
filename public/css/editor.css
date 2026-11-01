@@ -76,6 +76,8 @@ header {
 .overlay-picker { position: absolute; top: 16px; right: 16px; z-index: 6; display: flex; align-items: center; gap: 6px; padding: 6px; background: color-mix(in srgb, var(--panel) 92%, transparent); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 12px 32px rgba(0, 0, 0, .4); }
 .overlay-picker select, .overlay-picker input { font-weight: 600; }
 .overlay-picker select { max-width: 170px; }
+.picker-grip { display: flex; align-self: stretch; align-items: center; padding: 0 2px; color: var(--muted); cursor: grab; touch-action: none; }
+.overlay-picker.dragging, .overlay-picker.dragging .picker-grip { cursor: grabbing; user-select: none; }
 .picker-sep { width: 1px; align-self: stretch; margin: 2px 2px; background: var(--border); }
 .icon-btn { display: grid; place-items: center; width: 34px; height: 34px; padding: 0; color: var(--muted); background: transparent; border-color: transparent; }
 .icon-btn:hover { color: var(--text); background: var(--panel-2); border-color: var(--border); }
@@ -96,6 +98,7 @@ h2 { margin: 0 0 12px; font: 600 11px/1 var(--f-mono); text-transform: uppercase
 .season { display: flex; flex-direction: column; gap: 4px; margin-top: 12px; font-size: 13px; color: var(--muted); }
 
 .hint { margin: 6px 0 0; font-size: 13px; color: var(--muted); }
+#sessionInfo { text-align: center; }
 
 .recent-elo { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .recent-elo li { display: flex; align-items: center; gap: 8px; font-size: 13px; }
@@ -140,10 +143,13 @@ button.danger:hover { border-color: var(--danger); color: var(--danger); }
 .widgets .details { display: none; padding: 4px 8px 10px; }
 .widgets li.open .details { display: grid; }
 
-.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 10px; }
+.grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px 10px; }
 .details.grid { grid-template-columns: 1fr 1fr; gap: 6px 10px; }
-.grid label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
-.grid label.inline { flex-direction: row; align-items: center; gap: 6px; }
+/* Felder unten ausrichten, damit sie in einer Zeile auf gleicher Höhe stehen, auch wenn ein Text umbricht */
+.grid label { display: flex; flex-direction: column; justify-content: flex-end; gap: 4px; font-size: 13px; color: var(--muted); }
+/* Sichtbare Sprache unten im Textstapel, damit sie direkt über dem Feld steht, auch wenn eine andere Sprache umbricht */
+.grid label > fw-i18n > fw-l { align-self: end; }
+.grid label.inline { flex-direction: row; justify-content: flex-start; align-items: center; gap: 6px; }
 .grid label.full { grid-column: 1 / -1; }
 
 /* Hintergrund wie der Website-Hero: feines Raster und ein Hauch Orange */
@@ -176,6 +182,8 @@ button.danger:hover { border-color: var(--danger); color: var(--danger); }
 }
 
 .grid input:not([type='checkbox']), .grid select { width: 100%; min-width: 0; }
+/* Alle Felder gleich hoch, damit Beschriftungen und Felder nebeneinander auf einer Linie liegen */
+.grid input:not([type='checkbox']), .grid select { height: 36px; margin: 0; }
 .snap-guide { position: absolute; background: var(--accent); pointer-events: none; z-index: 10; }
 
 /* Tabs */
@@ -191,6 +199,7 @@ button.danger:hover { border-color: var(--danger); color: var(--danger); }
   .account { gap: 10px; }
   #accountName { display: none; }
   .overlay-picker { position: static; margin-bottom: 16px; flex-wrap: wrap; justify-content: center; }
+  .picker-grip { display: none; }
   .preview-area { padding-top: 16px; }
 }
 /* Wenig Platz: Status nur als Punkt, der Text steht im Tooltip */

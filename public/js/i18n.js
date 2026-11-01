@@ -10,6 +10,7 @@ const T = {
     langLabel: 'Sprache',
     selectOverlay: 'Overlay auswählen',
     overlayName: 'Name des Overlays',
+    movePicker: 'Leiste verschieben',
     new: 'Neu',
     duplicate: 'Duplizieren',
     reset: 'Zurücksetzen',
@@ -125,6 +126,7 @@ const T = {
     langLabel: 'Language',
     selectOverlay: 'Select overlay',
     overlayName: 'Overlay name',
+    movePicker: 'Move toolbar',
     new: 'New',
     duplicate: 'Duplicate',
     reset: 'Reset',
@@ -240,6 +242,7 @@ const T = {
     langLabel: 'Язык',
     selectOverlay: 'Выбрать оверлей',
     overlayName: 'Название оверлея',
+    movePicker: 'Переместить панель',
     new: 'Новый',
     duplicate: 'Дублировать',
     reset: 'Сбросить',
@@ -355,6 +358,7 @@ const T = {
     langLabel: 'Langue',
     selectOverlay: 'Choisir l’overlay',
     overlayName: 'Nom de l’overlay',
+    movePicker: 'Déplacer la barre',
     new: 'Nouveau',
     duplicate: 'Dupliquer',
     reset: 'Réinitialiser',
@@ -477,12 +481,13 @@ const WIDGETS = {
 
 const LOCALES = { de: 'de-DE', en: 'en-GB', ru: 'ru-RU', fr: 'fr-FR' };
 
+// Sprache aus dem Link (?lang=en), sonst die zuletzt gewählte, sonst Englisch
+const fromUrl = new URLSearchParams(location.search).get('lang');
 let stored = null;
 try {
   stored = localStorage.getItem('fw-lang');
 } catch {}
-const browser = (navigator.language || 'de').slice(0, 2).toLowerCase();
-let lang = LANGS.includes(stored) ? stored : LANGS.includes(browser) ? browser : 'de';
+let lang = LANGS.includes(fromUrl) ? fromUrl : LANGS.includes(stored) ? stored : 'en';
 
 export const getLang = () => lang;
 export const locale = () => LOCALES[lang];
@@ -563,6 +568,9 @@ export function setLang(next) {
     localStorage.setItem('fw-lang', next);
   } catch {}
   document.documentElement.lang = next;
+  const url = new URL(location.href);
+  url.searchParams.set('lang', next);
+  history.replaceState(history.state, '', url);
   applyI18n();
   document.dispatchEvent(new CustomEvent('fw:lang', { detail: next }));
 }
