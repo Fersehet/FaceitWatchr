@@ -82,7 +82,11 @@ app.use((req, res, next) => {
     return next();
   }
   if (req.path.startsWith('/api/')) return void res.status(401).json({ error: 'Bitte anmelden' });
-  if (req.method === 'GET') return res.redirect(`/login.html?next=${encodeURIComponent(req.originalUrl)}`);
+  if (req.method === 'GET') {
+    // Sprache aus dem Link auch auf der Login-Seite verwenden
+    const lang = typeof req.query.lang === 'string' ? `&lang=${encodeURIComponent(req.query.lang)}` : '';
+    return res.redirect(`/login.html?next=${encodeURIComponent(req.originalUrl)}${lang}`);
+  }
   res.status(404).send('Nicht gefunden');
 });
 
