@@ -45,8 +45,6 @@ export interface OverlayStyle {
   accentColor: string;
   positiveColor: string;
   negativeColor: string;
-  /** badge = eingebauter Nachbau im Faceit-Stil, official = Originaldatei vom Faceit-CDN */
-  levelIcon: 'official' | 'badge';
   showAvatarFrame: boolean;
   /** Season WR, K/D, HS %, ADR und Matches: cycle = abwechselnd Season und All-Time, sonst fest */
   statsPeriod: 'cycle' | 'season' | 'alltime';

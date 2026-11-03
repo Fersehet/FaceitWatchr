@@ -45,10 +45,6 @@ export const config = {
   adminPassword: process.env.ADMIN_PASSWORD || '',
   /** Schlüssel für die Login-Cookies. Leer = wird einmalig zufällig erzeugt und neben der Datenbank gespeichert. */
   sessionSecret: process.env.SESSION_SECRET?.trim() || '',
-  /** Vorlage für die offiziellen Faceit-Level-Symbole, {level} = 1–10 */
-  levelIconUrl:
-    process.env.LEVEL_ICON_URL ||
-    'https://cdn-frontend.faceit-cdn.net/web/static/media/assets_images_skill-icons_skill_level_{level}_svg.svg',
 };
 
 export const isDemo = config.faceitApiKey === '';

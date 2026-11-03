@@ -18,7 +18,7 @@ const storage = new SqliteStorage(config.dbPath);
 const source = isDemo ? new DemoSource() : new FaceitClient(config.faceitApiKey);
 const tracker = new Tracker(source, storage, isDemo ? 15 : config.pollIntervalSeconds, config.defaultNickname);
 
-const assets = new AssetCache(join(dirname(config.dbPath), 'assets'), config.levelIconUrl);
+const assets = new AssetCache(join(dirname(config.dbPath), 'assets'));
 const auth = new Auth(join(dirname(config.dbPath), 'session-secret'), config.sessionSecret, {
   name: config.adminUser,
   password: config.adminPassword,
@@ -124,12 +124,6 @@ app.get('/api/events', (req, res) => {
 });
 
 // Faceit-Bilder aus dem lokalen Cache (für Editor und Overlay)
-app.get('/assets/level/:level', async (req, res) => {
-  const asset = await assets.level(Number.parseInt(req.params.level, 10) || 1);
-  if (!asset) return void res.status(404).end();
-  res.type(asset.contentType).set('Cache-Control', 'public, max-age=86400').send(asset.body);
-});
-
 app.get('/assets/remote', async (req, res) => {
   const url = String(req.query.url ?? '');
   // Nur Faceit-Bilder oder der selbst eingetragene Rahmen, damit der Server kein offener Proxy ist

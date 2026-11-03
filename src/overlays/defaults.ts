@@ -70,7 +70,6 @@ export function defaultStyle(): OverlayStyle {
     accentColor: '#ff5500',
     positiveColor: '#32d74b',
     negativeColor: '#ff453a',
-    levelIcon: 'badge',
     showAvatarFrame: true,
     statsPeriod: 'cycle',
     statsCycleSeconds: 10,
@@ -90,12 +89,14 @@ export function createDefaultOverlay(name = 'Standard'): Overlay {
 }
 
 /**
- * Bringt gespeicherte Overlays auf den Stand neuer Versionen. Positionen und Größen sind fest,
+ * Bringt gespeicherte Overlays auf den Stand neuer Versionen. Positionen, Größen und das Design außerhalb des Editors sind fest,
  * eigene Beschriftungen und Farben sowie ein-/ausgeblendete Stats bleiben erhalten.
  */
 export function upgradeOverlay(overlay: Overlay): Overlay {
-  const { width, height } = defaultStyle();
-  overlay.style = { ...defaultStyle(), ...overlay.style, width, height };
+  // Nur diese Design-Werte lassen sich im Editor einstellen, alle anderen stehen fest auf dem Standard
+  const editable = ['background', 'backgroundOpacity', 'textColor', 'accentColor', 'showAvatarFrame', 'statsPeriod', 'statsCycleSeconds'] as const;
+  const style: Partial<OverlayStyle> = overlay.style ?? {};
+  overlay.style = { ...defaultStyle(), ...Object.fromEntries(editable.filter((k) => style[k] !== undefined).map((k) => [k, style[k]])) };
   const saved = new Map<string, Widget>(overlay.widgets.map((w) => [w.type, w]));
   const enabled = new Map<string, boolean>(overlay.widgets.map((w) => [w.type, w.enabled]));
   // Die Gesamt-Winrate gibt es nicht mehr, an ihrer Stelle steht die Season WR (wechselt mit All-Time)
