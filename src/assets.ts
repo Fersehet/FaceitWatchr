@@ -3,24 +3,15 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 /**
- * Lädt Bilder von Faceit (Level-Symbole, Avatar, Avatar-Rahmen) einmal herunter und
+ * Lädt Bilder von Faceit (Avatar, Avatar-Rahmen) einmal herunter und
  * liefert sie danach aus dem lokalen Cache. Editor und Overlay nutzen dieselben Dateien.
  * Die Bilder gehören Faceit und werden deshalb nicht im Repo mitgeliefert, sondern nur lokal zwischengespeichert.
  */
 export class AssetCache {
   private inflight = new Map<string, Promise<CachedAsset | null>>();
 
-  constructor(
-    private readonly dir: string,
-    private readonly levelIconUrl: string,
-  ) {
+  constructor(private readonly dir: string) {
     mkdirSync(dir, { recursive: true });
-  }
-
-  /** Offizielles Faceit-Level-Symbol (1–10). */
-  level(level: number): Promise<CachedAsset | null> {
-    const n = Math.min(10, Math.max(1, Math.round(level)));
-    return this.fetchCached(this.levelIconUrl.replace('{level}', String(n)), `level-${n}`);
   }
 
   /** Bild von Faceit (Avatar, Rahmen). Andere Hosts nur mit `allowOtherHost` (selbst eingetragener Rahmen). */

@@ -2,7 +2,6 @@
 
 const LEVEL_THRESHOLDS = [0, 501, 751, 901, 1051, 1201, 1351, 1531, 1751, 2001];
 const SYSTEM_FONTS = ['Arial', 'Verdana', 'Tahoma', 'Segoe UI', 'Impact'];
-export const FONTS = ['Geist', 'Play', 'Rajdhani', 'Inter', 'Roboto', 'Montserrat', 'Oswald', 'Bebas Neue', 'Teko', 'Exo 2', ...SYSTEM_FONTS];
 
 function levelColor(level) {
   if (level >= 10) return '#fe1f00';
@@ -45,9 +44,6 @@ function el(tag, styles = {}, text) {
 export function assetUrl(remote) {
   return `/assets/remote?url=${encodeURIComponent(remote)}`;
 }
-
-// Level-Symbole, die nicht geladen werden konnten: dann den gezeichneten Kreis verwenden
-const missingLevelIcons = new Set();
 
 // Nachbau der Faceit-Level-Symbole: dunkle Scheibe, Bogen über 270° (Lücke unten), Füllung = Level / 10
 function arcPath(r, fromDeg, sweepDeg) {
@@ -150,15 +146,7 @@ function widgetContent(widget, style, state, period = 'alltime') {
       return p ? el('div', { fontWeight: 700 }, p.nickname) : null;
     case 'level': {
       if (!p) return null;
-      if (style.levelIcon === 'badge' || missingLevelIcons.has(p.level)) return levelBadge(p.level, size);
-      const icon = el('img', { width: `${size * 1.6}px`, height: `${size * 1.6}px`, display: 'block' });
-      icon.src = `/assets/level/${p.level}`;
-      icon.alt = `Level ${p.level}`;
-      icon.onerror = () => {
-        missingLevelIcons.add(p.level);
-        icon.replaceWith(levelBadge(p.level, size));
-      };
-      return icon;
+      return levelBadge(p.level, size);
     }
     case 'elo':
       return p ? el('div', { fontWeight: 700 }, `${p.elo} ELO`) : null;

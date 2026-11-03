@@ -13,11 +13,11 @@ Build your own Faceit overlays (Elo, level, K/D, session stats, …) for OBS and
 
 ## What it looks like
 
-**Editor:** switch stats on or off, pick colours and font, copy the OBS link.
+**Editor:** switch stats on or off, pick colours, copy the OBS link.
 
 ![Editor with overlay preview](docs/screenshots/editor.png)
 
-**Pick your stats:** every stat can be shown or hidden on its own, each one has a fixed spot. Fonts and colours are set under **Design**.
+**Pick your stats:** every stat can be shown or hidden on its own, each one has a fixed spot. Colours are set under **Design**.
 
 ![Editor with the stats list](docs/screenshots/editor-widgets.png)
 
