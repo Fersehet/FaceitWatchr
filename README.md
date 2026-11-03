@@ -13,11 +13,11 @@ Build your own Faceit overlays (Elo, level, K/D, session stats, …) for OBS and
 
 ## What it looks like
 
-**Editor:** design the overlay live, drag elements into place, copy the OBS link.
+**Editor:** switch stats on or off, pick colours and font, copy the OBS link.
 
 ![Editor with overlay preview](docs/screenshots/editor.png)
 
-**Pick your stats:** every stat can be shown or hidden on its own and reordered. Fonts and colours are set under **Design**.
+**Pick your stats:** every stat can be shown or hidden on its own, each one has a fixed spot. Fonts and colours are set under **Design**.
 
 ![Editor with the stats list](docs/screenshots/editor-widgets.png)
 
@@ -66,7 +66,7 @@ Open **http://localhost:3000** in your browser and sign in with user `admin` and
 
 1. In the editor under **Add to OBS**, copy the URL, e.g. `http://localhost:3000/overlay/abcd1234`.
 2. In OBS choose **Add source → Browser** and paste the URL.
-3. Enter the width and height shown in the editor under **Design**.
+3. Set width 420 and height 170.
 
 If the server runs on another machine, use its IP instead of `localhost`. Overlays can be read without signing in, the editor cannot.
 
@@ -79,7 +79,7 @@ If the server runs on another machine, use its IP instead of `localhost`. Overla
 - **The editor says the player was not found or has no CS2 profile:** check the spelling of your Faceit nickname in the editor.
 - **The editor says the rate limit was reached:** set a higher `POLL_INTERVAL_SECONDS` in `.env` (default 60).
 - **Nothing shows up in OBS:** open the OBS URL in your browser. If it stays empty there, copy the URL again from the editor under **Add to OBS**. If the server runs on another machine, use its IP instead of `localhost`.
-- **The overlay is cut off in OBS:** set the width and height of the Browser source to the values under **Design** in the editor.
+- **The overlay is cut off in OBS:** set the width of the Browser source to 420 and the height to 170.
 - **Changes don't show up after an update:** an old server may still be running in the background and holding port `3000`. Close every terminal running `npm start` (or end the `node` processes), then run `npm start` once. If the port is used by something else, set another one, e.g. `PORT=3001` in `.env`.
 - **The Elo of a match looks wrong:** if Faceit's Elo history can't be read, or several matches ended between two checks, the Elo is estimated and shown faded. Enter the real Elo under **Elo of recent matches** in the editor. Hub and tournament matches without Elo show 0.
 

@@ -136,15 +136,10 @@ button.danger:hover { border-color: var(--danger); color: var(--danger); }
 
 .widgets { list-style: none; margin: 0; padding: 0; }
 .widgets li { border: 1px solid var(--border); border-radius: 8px; margin-bottom: 6px; background: var(--panel); transition: border-color .2s; }
-.widgets li.selected { border-color: color-mix(in srgb, var(--accent) 60%, var(--border)); background: color-mix(in srgb, var(--accent) 8%, var(--panel)); }
 .widgets .head { display: flex; align-items: center; gap: 8px; padding: 6px 8px; }
 .widgets .head span { flex: 1; cursor: pointer; font-weight: 500; }
-.widgets .head button { padding: 4px 8px; font: 500 12px/1 var(--f-body); background: transparent; }
-.widgets .details { display: none; padding: 4px 8px 10px; }
-.widgets li.open .details { display: grid; }
 
 .grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px 10px; }
-.details.grid { grid-template-columns: 1fr 1fr; gap: 6px 10px; }
 /* Felder unten ausrichten, damit sie in einer Zeile auf gleicher Höhe stehen, auch wenn ein Text umbricht */
 .grid label { display: flex; flex-direction: column; justify-content: flex-end; gap: 4px; font-size: 13px; color: var(--muted); }
 /* Sichtbare Sprache unten im Textstapel, damit sie direkt über dem Feld steht, auch wenn eine andere Sprache umbricht */
@@ -184,7 +179,6 @@ button.danger:hover { border-color: var(--danger); color: var(--danger); }
 .grid input:not([type='checkbox']), .grid select { width: 100%; min-width: 0; }
 /* Alle Felder gleich hoch, damit Beschriftungen und Felder nebeneinander auf einer Linie liegen */
 .grid input:not([type='checkbox']), .grid select { height: 36px; margin: 0; }
-.snap-guide { position: absolute; background: var(--accent); pointer-events: none; z-index: 10; }
 
 /* Tabs */
 .tabs { display: flex; gap: 22px; align-self: stretch; }

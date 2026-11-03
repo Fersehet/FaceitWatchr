@@ -7,13 +7,10 @@ export const WIDGET_TYPES = [
   'eloToday',
   'sessionRecord',
   'matches',
-  'winRate',
   'seasonWinRate',
   'kd',
   'hsPercent',
   'adr',
-  'currentStreak',
-  'longestStreak',
   'recentResults',
 ] as const;
 
@@ -32,8 +29,6 @@ export interface Widget {
   showLabel: boolean;
   /** Beschriftung, solange die All-Time-Werte zu sehen sind (nur Season WR) */
   altLabel?: string;
-  /** Vom Server gesetzt: der Editor soll das Widget auf einen freien Platz schieben. */
-  autoPlace?: boolean;
 }
 
 export interface OverlayStyle {

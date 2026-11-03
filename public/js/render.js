@@ -195,8 +195,6 @@ function widgetContent(widget, style, state, period = 'alltime') {
     }
     case 'matches':
       return v ? el('div', { fontWeight: 600 }, String(v.matches)) : null;
-    case 'winRate':
-      return p ? el('div', { fontWeight: 600 }, `${p.winRate}%`) : null;
     case 'seasonWinRate':
       return v ? el('div', { fontWeight: 600 }, `${v.winRate}%`) : null;
     case 'kd':
@@ -205,10 +203,6 @@ function widgetContent(widget, style, state, period = 'alltime') {
       return v ? el('div', { fontWeight: 600 }, v.hsPercent == null ? '–' : `${v.hsPercent}%`) : null;
     case 'adr':
       return v ? el('div', { fontWeight: 600 }, v.adr == null ? '–' : v.adr.toFixed(1)) : null;
-    case 'currentStreak':
-      return p ? el('div', { fontWeight: 600 }, String(p.currentStreak)) : null;
-    case 'longestStreak':
-      return p ? el('div', { fontWeight: 600 }, String(p.longestStreak)) : null;
     case 'recentResults': {
       if (!p) return null;
       // Ältere Server liefern noch keine recentMatches: dann nur Striche
@@ -289,12 +283,11 @@ const reducedMotion = () => typeof matchMedia === 'function' && matchMedia('(pre
 
 /**
  * Zeichnet ein Overlay in `container`.
- * Mit `editable` bekommen die Widgets data-Attribute, damit der Editor sie verschieben kann.
  * Wechseln die Stats zwischen Season und All-Time, zeichnet sich das Overlay zum Wechsel selbst neu;
  * mit `redraw` übernimmt das stattdessen der Aufrufer (z. B. wenn er danach noch etwas anpasst).
  */
 export function renderOverlay(container, overlay, state, options = {}) {
-  const { editable = false, selectedId = null, redraw = null } = options;
+  const { redraw = null } = options;
   const { style } = overlay;
   loadFont(style.fontFamily);
 
@@ -344,12 +337,6 @@ export function renderOverlay(container, overlay, state, options = {}) {
     slot.appendChild(content ?? el('div', { opacity: 0.4 }, '–'));
     node.appendChild(slot);
     if (animate && PERIOD_WIDGETS.has(widget.type)) rolled.push({ widget, slot, label });
-    if (editable) {
-      node.dataset.widgetId = widget.id;
-      node.style.cursor = 'move';
-      node.style.userSelect = 'none';
-      if (widget.id === selectedId) node.style.outline = `1px dashed ${style.accentColor}`;
-    }
     root.appendChild(node);
   }
 
