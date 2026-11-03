@@ -10,13 +10,10 @@ const LABELS: Record<WidgetType, string> = {
   eloToday: 'Elo heute',
   sessionRecord: 'Heute',
   matches: 'Matches',
-  winRate: 'Winrate',
   seasonWinRate: 'Season WR',
   kd: 'K/D',
   hsPercent: 'HS %',
   adr: 'ADR',
-  currentStreak: 'Siegesserie',
-  longestStreak: 'Längste Serie',
   recentResults: 'Letzte Matches',
 };
 
@@ -35,13 +32,10 @@ const LAYOUT: Record<WidgetType, Layout> = {
   eloToday: { x: 240, y: 18, fontSize: 18, enabled: true, showLabel: true },
   sessionRecord: { x: 336, y: 32, fontSize: 18, enabled: true, showLabel: false },
   matches: { x: 353, y: 120, fontSize: 16, enabled: true, showLabel: true },
-  winRate: { x: 300, y: 120, fontSize: 16, enabled: false, showLabel: true },
   seasonWinRate: { x: 16, y: 120, fontSize: 16, enabled: true, showLabel: true },
   kd: { x: 120, y: 120, fontSize: 16, enabled: true, showLabel: true },
   hsPercent: { x: 197, y: 120, fontSize: 16, enabled: true, showLabel: true },
   adr: { x: 275, y: 120, fontSize: 16, enabled: true, showLabel: true },
-  currentStreak: { x: 240, y: 120, fontSize: 16, enabled: false, showLabel: true },
-  longestStreak: { x: 320, y: 120, fontSize: 16, enabled: false, showLabel: true },
   recentResults: { x: 240, y: 58, fontSize: 14, enabled: true, showLabel: false },
 };
 
@@ -95,58 +89,22 @@ export function createDefaultOverlay(name = 'Standard'): Overlay {
   };
 }
 
-/** Bringt gespeicherte Overlays auf den Stand neuer Versionen, ohne eigene Anpassungen zu überschreiben. */
-export function upgradeOverlay(overlay: Overlay): Overlay {
-  overlay.style = { ...defaultStyle(), ...overlay.style };
-  const known = new Set(overlay.widgets.map((w) => w.type));
-  overlay.widgets.push(...defaultWidgets().filter((w) => !known.has(w.type)).map((w) => ({ ...w, enabled: false })));
-  // Alte Standardposition der letzten Matches lag über der ADR
-  const recent = overlay.widgets.find((w) => w.type === 'recentResults');
-  if (recent && recent.x === 260 && recent.y === 124) {
-    recent.x = LAYOUT.recentResults.x!;
-    recent.y = LAYOUT.recentResults.y!;
-    recent.autoPlace = true;
-  }
-  // Früher stand über der Tagesbilanz die Beschriftung „Heute“; ohne sie rutscht der Wert auf die Höhe von „Elo heute“
-  const record = overlay.widgets.find((w) => w.type === 'sessionRecord');
-  if (record && record.x === 320 && record.y === 18 && record.showLabel) {
-    record.showLabel = false;
-    record.y = LAYOUT.sessionRecord.y!;
-  }
-  // Level und Elo standen im Standard-Layout zuerst 4 px weiter links
-  const level = overlay.widgets.find((w) => w.type === 'level');
-  const elo = overlay.widgets.find((w) => w.type === 'elo');
-  if (level && elo && level.x === 84 && level.y === 42 && elo.x === 120 && elo.y === 46) {
-    level.x = LAYOUT.level.x!;
-    elo.x = LAYOUT.elo.x!;
-  }
-  // Season WR wechselt jetzt mit All-Time und braucht dafür eine zweite Beschriftung
-  const season = overlay.widgets.find((w) => w.type === 'seasonWinRate');
-  if (season && season.altLabel === undefined) season.altLabel = ALL_TIME_WR;
-  // Die Tagesbilanz endet seit der festen Breite bei x 336 bündig mit dem Elo-Balken
-  if (record && record.x === 320 && record.y === 32) record.x = LAYOUT.sessionRecord.x!;
-  return overlay;
-}
-
 /**
- * Ersetzt die Gesamt-Winrate durch die Season-Winrate an derselben Stelle.
- * Gibt true zurück, wenn sich etwas geändert hat.
+ * Bringt gespeicherte Overlays auf den Stand neuer Versionen. Positionen und Größen sind fest,
+ * eigene Beschriftungen und Farben sowie ein-/ausgeblendete Stats bleiben erhalten.
  */
-export function useSeasonWinRate(overlay: Overlay): boolean {
-  const total = overlay.widgets.find((w) => w.type === 'winRate');
-  const season = overlay.widgets.find((w) => w.type === 'seasonWinRate');
-  if (!total?.enabled || !season || season.enabled) return false;
-  Object.assign(season, {
-    enabled: true,
-    x: total.x,
-    y: total.y,
-    fontSize: total.fontSize,
-    color: total.color,
-    showLabel: total.showLabel,
-    label: season.label === 'Season Winrate' ? LABELS.seasonWinRate : season.label,
+export function upgradeOverlay(overlay: Overlay): Overlay {
+  const { width, height } = defaultStyle();
+  overlay.style = { ...defaultStyle(), ...overlay.style, width, height };
+  const saved = new Map<string, Widget>(overlay.widgets.map((w) => [w.type, w]));
+  const enabled = new Map<string, boolean>(overlay.widgets.map((w) => [w.type, w.enabled]));
+  // Die Gesamt-Winrate gibt es nicht mehr, an ihrer Stelle steht die Season WR (wechselt mit All-Time)
+  if (enabled.get('winRate')) enabled.set('seasonWinRate', true);
+  overlay.widgets = defaultWidgets().map((w) => {
+    const { x, y, fontSize } = w;
+    return { ...w, ...saved.get(w.type), x, y, fontSize, enabled: enabled.get(w.type) ?? false };
   });
-  total.enabled = false;
-  return true;
+  return overlay;
 }
 
 export { LABELS as WIDGET_LABELS };
