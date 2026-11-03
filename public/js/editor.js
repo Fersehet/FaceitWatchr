@@ -1,4 +1,4 @@
-import { FONTS, renderOverlay } from './render.js';
+import { renderOverlay } from './render.js';
 import { createIntro, createLoader } from './loader.js';
 import { initLangSelect, locale, setText, showText, t, tx, widgetName, wx } from './i18n.js';
 import { loadStats, renderStats } from './stats.js';
@@ -152,16 +152,8 @@ function renderWidgetList() {
 const STYLE_FIELDS = [
   ['background', 'background', 'color'],
   ['backgroundOpacity', 'opacity', 'range', { min: 0, max: 1, step: 0.05 }],
-  ['borderRadius', 'radius', 'number'],
-  ['borderWidth', 'border', 'number'],
-  ['borderColor', 'borderColor', 'color'],
-  ['fontFamily', 'font', 'font'],
   ['textColor', 'textColor', 'color'],
-  ['labelColor', 'labelColor', 'color'],
   ['accentColor', 'accentColor', 'color'],
-  ['positiveColor', 'positiveColor', 'color'],
-  ['negativeColor', 'negativeColor', 'color'],
-  ['levelIcon', 'levelIcon', 'select', { options: [['badge', 'levelBadge'], ['official', 'levelOfficial']] }],
   ['showAvatarFrame', 'showFrame', 'checkbox'],
   ['statsPeriod', 'statsPeriod', 'select', { options: [['cycle', 'statsCycle'], ['season', 'statsSeason'], ['alltime', 'statsAllTime']] }],
   ['statsCycleSeconds', 'statsCycleSeconds', 'number', { min: 3, max: 600 }],
@@ -171,25 +163,24 @@ function renderStyleForm() {
   const form = $('styleForm');
   form.replaceChildren();
   for (const [key, labelKey, type, attrs] of STYLE_FIELDS) {
+    // Die Sekunden gelten nur beim Wechseln
+    if (key === 'statsCycleSeconds' && (overlay.style.statsPeriod ?? 'cycle') !== 'cycle') continue;
     const label = tx(labelKey);
     const set = (v) => {
       overlay.style[key] = key === 'statsCycleSeconds' ? Math.max(3, v || 10) : v;
       changed();
-      // Die Sekunden gelten nur beim Wechseln
       if (key === 'statsPeriod') renderStyleForm();
     };
-    if (type === 'font' || type === 'select') {
-      const options = type === 'font' ? FONTS.map((f) => [f, f]) : attrs.options.map(([value, key]) => [value, t(key)]);
+    if (type === 'select') {
+      const options = attrs.options.map(([value, key]) => [value, t(key)]);
       const select = document.createElement('select');
       for (const [value, text] of options) select.add(new Option(text, value, false, value === overlay.style[key]));
       select.addEventListener('change', () => set(select.value));
-      form.appendChild(field(label, select));
+      form.appendChild(field(label, select, 'full'));
     } else if (type === 'checkbox') {
       form.appendChild(field(label, input('checkbox', !!overlay.style[key], set), 'full'));
     } else {
-      const node = input(type, overlay.style[key], set, attrs);
-      if (key === 'statsCycleSeconds') node.disabled = (overlay.style.statsPeriod ?? 'cycle') !== 'cycle';
-      form.appendChild(field(label, node));
+      form.appendChild(field(label, input(type, overlay.style[key], set, attrs)));
     }
   }
 }
