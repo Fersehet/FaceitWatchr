@@ -60,7 +60,7 @@ Then start it:
 npm start
 ```
 
-Open **http://localhost:3000** in your browser and sign in with user `admin` and your password. If `ADMIN_PASSWORD` is left empty, there is no login and the editor opens directly. Only do that if the server is not reachable from the internet. Enter your Faceit nickname in the editor and design your overlay.
+Open **http://localhost:3000** in your browser and sign in with user `admin` and your password. If `ADMIN_PASSWORD` is left empty, the server runs locally: no login, the editor opens directly and only this computer can reach it. Enter your Faceit nickname in the editor and design your overlay.
 
 ## Adding it to OBS
 
@@ -68,7 +68,7 @@ Open **http://localhost:3000** in your browser and sign in with user `admin` and
 2. In OBS choose **Add source → Browser** and paste the URL.
 3. Set width 420 and height 170.
 
-If the server runs on another machine, use its IP instead of `localhost`. Overlays can be read without signing in, the editor cannot.
+If the server runs on another machine, set `ADMIN_PASSWORD` (without it the server only listens on this computer) and use its IP instead of `localhost`. Overlays can be read without signing in, the editor cannot.
 
 ## Troubleshooting
 
