@@ -32,15 +32,15 @@ export function demoReason(): string {
 
 export const config = {
   port: Number(process.env.PORT) || 3000,
-  /** 0.0.0.0 = auch im Heimnetz und aus Docker erreichbar */
-  host: process.env.HOST || '0.0.0.0',
+  /** Mit Passwort 0.0.0.0 (auch im Heimnetz und aus Docker erreichbar), ohne Passwort lokal nur dieser PC */
+  host: process.env.HOST || (process.env.ADMIN_PASSWORD ? '0.0.0.0' : '127.0.0.1'),
   faceitApiKey: process.env.FACEIT_API_KEY?.trim() || '',
   defaultNickname: process.env.FACEIT_NICKNAME?.trim() || '',
   pollIntervalSeconds: Math.max(15, Number(process.env.POLL_INTERVAL_SECONDS) || 60),
   dbPath: process.env.DB_PATH || './data/faceitwatcher.db',
   /** Optionaler Ordner mit einer eigenen Startseite für /. Fehlt er, führt / direkt zum Editor. */
   siteDir: resolve(fileURLToPath(new URL('..', import.meta.url)), process.env.SITE_DIR || 'website'),
-  /** Zugang zum Editor. Ohne Passwort kann sich niemand anmelden. */
+  /** Zugang zum Editor. Ohne Passwort läuft der Server lokal ohne Login. */
   adminUser: process.env.ADMIN_USER?.trim() || 'admin',
   adminPassword: process.env.ADMIN_PASSWORD || '',
   /** Schlüssel für die Login-Cookies. Leer = wird einmalig zufällig erzeugt und neben der Datenbank gespeichert. */
