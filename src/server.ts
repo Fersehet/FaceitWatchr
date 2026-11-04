@@ -252,6 +252,6 @@ app.listen(config.port, config.host, () => {
   console.log(`FaceitWatchr läuft: http://localhost:${config.port}`);
   if (isDemo) console.log(`Demo-Modus aktiv, es werden Beispieldaten angezeigt. Grund: ${demoReason()}`);
   else console.log(`Faceit API-Key geladen (endet auf ...${config.faceitApiKey.slice(-4)}).`);
-  if (!auth.enabled) console.log('Hinweis: ADMIN_PASSWORD fehlt in der .env, ohne Passwort kann sich niemand im Editor anmelden.');
+  if (!auth.enabled) console.log('Hinweis: ADMIN_PASSWORD fehlt in der .env, der Editor ist ohne Login für jeden erreichbar.');
   tracker.start();
 });
