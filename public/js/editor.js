@@ -478,6 +478,8 @@ async function initAccount() {
   const me = await fetch('/api/me').then((r) => r.json()).catch(() => null);
   if (me?.user) $('accountName').textContent = me.user;
   $('startPage').hidden = !me?.startPage;
+  // Ohne Passwort gibt es keinen Login, also auch nichts zum Abmelden
+  if (me && !me.loginEnabled) $('logout').hidden = true;
 }
 
 // Sprache: feste Texte übersetzt i18n.js, die selbst gebauten Teile werden neu gezeichnet
