@@ -21,8 +21,10 @@ export class Auth {
   private users = new Map<string, User>();
   private key: Buffer;
   private fails = new Map<string, { count: number; until: number }>();
+  private adminName: string;
 
   constructor(secretFile: string, secretFromEnv: string, admin: { name: string; password: string }) {
+    this.adminName = admin.name;
     if (admin.password) this.users.set(admin.name.toLowerCase(), hashUser(admin.name, admin.password));
     // Das Passwort fließt in den Schlüssel ein: Passwort ändern = alle Sitzungen abmelden
     const secret = secretFromEnv || loadOrCreateSecret(secretFile);
@@ -33,8 +35,9 @@ export class Auth {
     return this.users.size > 0;
   }
 
-  /** Angemeldeter Nutzer oder null. */
+  /** Angemeldeter Nutzer oder null. Ohne ADMIN_PASSWORD gibt es keinen Login, dann gilt jeder als angemeldet. */
   user(req: Request): string | null {
+    if (!this.enabled) return this.adminName;
     const raw = readCookie(req, COOKIE);
     if (!raw) return null;
     const [payload, sig] = raw.split('.');

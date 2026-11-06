@@ -60,7 +60,7 @@ Then start it:
 npm start
 ```
 
-Open **http://localhost:3000** in your browser and sign in with user `admin` and your password. Enter your Faceit nickname in the editor and design your overlay.
+Open **http://localhost:3000** in your browser and sign in with user `admin` and your password. If `ADMIN_PASSWORD` is left empty, the server runs locally: no login, the editor opens directly and only this computer can reach it. Enter your Faceit nickname in the editor and design your overlay.
 
 ## Adding it to OBS
 
@@ -68,12 +68,11 @@ Open **http://localhost:3000** in your browser and sign in with user `admin` and
 2. In OBS choose **Add source → Browser** and paste the URL.
 3. Set width 420 and height 170.
 
-If the server runs on another machine, use its IP instead of `localhost`. Overlays can be read without signing in, the editor cannot.
+If the server runs on another machine, set `ADMIN_PASSWORD` (without it the server only listens on this computer) and use its IP instead of `localhost`. Overlays can be read without signing in, the editor cannot.
 
 ## Troubleshooting
 
 - **The editor shows "Demo mode (no API key)":** the server found no key. The console window says why when it starts. Check that `.env` has a line `FACEIT_API_KEY=your-key` and restart the server. On Windows, make sure the file is called `.env` and not `.env.txt`.
-- **The sign-in page says login is not set up:** put `ADMIN_PASSWORD` into `.env` and restart the server.
 - **"Too many attempts":** after 10 wrong passwords the login is locked for up to 15 minutes.
 - **The editor says the API key is invalid:** create a new key of type **Server side** at [developers.faceit.com](https://developers.faceit.com) and put it into `.env`.
 - **The editor says the player was not found or has no CS2 profile:** check the spelling of your Faceit nickname in the editor.
