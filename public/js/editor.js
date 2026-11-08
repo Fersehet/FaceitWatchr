@@ -214,8 +214,8 @@ function renderStatus() {
   } else {
     status.className = `status ${state?.demo ? 'demo' : 'live'}`;
     const [key, vars] = state?.demo ? ['demo'] : state?.player ? ['live', { n: state.player.nickname }] : ['connecting'];
-    setText(status, key, vars);
-    status.title = t(key, vars);
+    // Nur die aktive Sprache: übereinandergelegte Sprachen machen die Pille so breit wie die längste
+    status.textContent = status.title = t(key, vars);
   }
   if (document.activeElement !== $('nickname')) $('nickname').value = state?.nickname ?? '';
   if (document.activeElement !== $('frameUrl')) $('frameUrl').value = state?.avatarFrameOverride ?? '';
