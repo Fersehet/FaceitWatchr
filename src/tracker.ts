@@ -153,6 +153,8 @@ export class Tracker extends EventEmitter {
     this.state.session = null;
     this.state.season = null;
     this.state.recentMatches = [];
+    // Wartende Matches gehören zum alten Spieler und dürfen nicht die Elo des neuen bekommen
+    this.pending = [];
     await this.poll();
   }
 

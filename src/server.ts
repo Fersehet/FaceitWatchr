@@ -1,5 +1,6 @@
 import express, { type Response } from 'express';
 import { existsSync } from 'node:fs';
+import { STATUS_CODES } from 'node:http';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { AssetCache, isFaceitUrl } from './assets.ts';
@@ -247,6 +248,14 @@ app.delete('/api/overlays/:id', (req, res) => {
   storage.deleteOverlay(req.params.id);
   res.status(204).end();
 });
+
+// Fehler ohne Stacktrace beantworten, damit keine Ordnerpfade des Servers nach außen gehen
+app.use(((err, _req, res, next) => {
+  if (res.headersSent) return next(err);
+  const status = Number(err?.status) >= 400 ? Number(err.status) : 500;
+  if (status >= 500) console.error(err);
+  res.status(status).json({ error: STATUS_CODES[status] ?? 'Error' });
+}) as express.ErrorRequestHandler);
 
 app.listen(config.port, config.host, () => {
   console.log(`FaceitWatchr läuft: http://localhost:${config.port}`);
