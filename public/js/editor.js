@@ -194,7 +194,9 @@ function renderOverlaySelect() {
 
 async function openOverlay(id) {
   overlay = await api('GET', `/api/overlays/${id}`);
-  localStorage.setItem('fw-overlay', id);
+  try {
+    localStorage.setItem('fw-overlay', id);
+  } catch {}
   $('overlayName').value = overlay.name;
   $('obsUrl').value = `${location.origin}/overlay/${overlay.id}`;
   renderOverlaySelect();
@@ -376,7 +378,10 @@ async function init() {
     intro.progress(0.85);
     renderStatus();
 
-    const remembered = localStorage.getItem('fw-overlay');
+    let remembered = null;
+    try {
+      remembered = localStorage.getItem('fw-overlay');
+    } catch {}
     await openOverlay(overlays.some((o) => o.id === remembered) ? remembered : overlays[0].id);
   });
   setupPickerDrag();
@@ -453,7 +458,13 @@ async function init() {
     drawPreview();
   });
   $('copyUrl').addEventListener('click', async () => {
-    await navigator.clipboard?.writeText($('obsUrl').value);
+    try {
+      await navigator.clipboard.writeText($('obsUrl').value);
+    } catch {
+      // Ohne https (z. B. Aufruf über die IP im Heimnetz) gibt es keine Zwischenablage-API: Feld markieren und klassisch kopieren
+      $('obsUrl').select();
+      if (!document.execCommand('copy')) return;
+    }
     showText($('copyUrl'), 'copied');
     setTimeout(() => showText($('copyUrl'), 'copy'), 1500);
   });
