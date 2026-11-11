@@ -136,7 +136,7 @@ app.get('/assets/remote', async (req, res) => {
 
 app.put('/api/avatar-frame', async (req, res) => {
   const url = String(req.body?.url ?? '').trim();
-  if (url && !url.startsWith('https://')) return void res.status(400).json({ error: 'Bitte eine https-Adresse angeben' });
+  if (url && !url.startsWith('https://')) return void res.status(400).json({ error: 'errHttps' });
   await tracker.setAvatarFrameOverride(url);
   res.json(tracker.state);
 });
@@ -202,7 +202,7 @@ app.get('/api/overlays', (_req, res) => res.json(storage.listOverlays(OWNER)));
 
 app.get('/api/overlays/:id', (req, res) => {
   const overlay = storage.getOverlay(req.params.id);
-  if (!overlay) return void res.status(404).json({ error: 'Overlay nicht gefunden' });
+  if (!overlay) return void res.status(404).json({ error: 'errOverlayNotFound' });
   res.json(upgradeOverlay(overlay));
 });
 
@@ -219,7 +219,7 @@ app.post('/api/overlays', (req, res) => {
 
 app.put('/api/overlays/:id', (req, res) => {
   const existing = storage.getOverlay(req.params.id);
-  if (!existing) return void res.status(404).json({ error: 'Overlay nicht gefunden' });
+  if (!existing) return void res.status(404).json({ error: 'errOverlayNotFound' });
   const body = req.body as Partial<Overlay>;
   const overlay: Overlay = {
     ...existing,
@@ -236,7 +236,7 @@ app.put('/api/overlays/:id', (req, res) => {
 // Setzt Design und Elemente auf den Standard zurück, Name und OBS-Adresse bleiben
 app.post('/api/overlays/:id/reset', (req, res) => {
   const existing = storage.getOverlay(req.params.id);
-  if (!existing) return void res.status(404).json({ error: 'Overlay nicht gefunden' });
+  if (!existing) return void res.status(404).json({ error: 'errOverlayNotFound' });
   const overlay: Overlay = { ...existing, style: defaultStyle(), widgets: defaultWidgets(), updatedAt: new Date().toISOString() };
   storage.saveOverlay(overlay);
   broadcast('overlay', overlay);
@@ -244,7 +244,7 @@ app.post('/api/overlays/:id/reset', (req, res) => {
 });
 
 app.delete('/api/overlays/:id', (req, res) => {
-  if (storage.listOverlays(OWNER).length <= 1) return void res.status(400).json({ error: 'Das letzte Overlay kann nicht gelöscht werden' });
+  if (storage.listOverlays(OWNER).length <= 1) return void res.status(400).json({ error: 'errLastOverlay' });
   storage.deleteOverlay(req.params.id);
   res.status(204).end();
 });

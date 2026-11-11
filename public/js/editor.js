@@ -207,12 +207,18 @@ async function openOverlay(id) {
 
 // ---------- Live-Status ----------
 
+// Fehler vom Server sind Schlüssel für die Übersetzung, bei Bedarf mit einem Wert dahinter: "errFaceitApi|500"
+function errText(message) {
+  const [key, n] = String(message).split('|');
+  return t(key, { n });
+}
+
 function renderStatus() {
   const status = $('status');
   if (state?.error) {
     status.className = 'status error';
-    status.textContent = state.error;
-    status.title = state.error;
+    status.textContent = errText(state.error);
+    status.title = status.textContent;
   } else {
     status.className = `status ${state?.demo ? 'demo' : 'live'}`;
     const [key, vars] = state?.demo ? ['demo'] : state?.player ? ['live', { n: state.player.nickname }] : ['connecting'];
@@ -422,7 +428,7 @@ async function init() {
         await openOverlay(overlays[0].id);
       });
     } catch (err) {
-      alert(err.message);
+      alert(errText(err.message));
     }
   });
 
@@ -439,7 +445,7 @@ async function init() {
       renderStatus();
       drawPreview();
     } catch (err) {
-      alert(err.message);
+      alert(errText(err.message));
     }
   });
   $('seasonStart').addEventListener('change', async (e) => {

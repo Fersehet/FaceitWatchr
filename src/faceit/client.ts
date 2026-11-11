@@ -23,17 +23,17 @@ export class FaceitClient implements StatsSource {
     const res = await fetch(BASE_URL + path, {
       headers: { Authorization: `Bearer ${this.apiKey}`, Accept: 'application/json' },
     });
-    if (res.status === 401 || res.status === 403) throw new Error('Faceit API-Key ungültig oder ohne Berechtigung');
-    if (res.status === 404) throw new Error('Spieler nicht gefunden');
-    if (res.status === 429) throw new Error('Faceit Rate-Limit erreicht, bitte Abfrage-Intervall erhöhen');
-    if (!res.ok) throw new Error(`Faceit API Fehler ${res.status}`);
+    if (res.status === 401 || res.status === 403) throw new Error('errApiKey');
+    if (res.status === 404) throw new Error('errPlayerNotFound');
+    if (res.status === 429) throw new Error('errRateLimit');
+    if (!res.ok) throw new Error(`errFaceitApi|${res.status}`);
     return (await res.json()) as T;
   }
 
   async fetchPlayer(nickname: string): Promise<PlayerSnapshot> {
     const player = await this.get<any>(`/players?nickname=${encodeURIComponent(nickname)}&game=${GAME}`);
     const game = player.games?.[GAME];
-    if (!game) throw new Error(`${player.nickname} hat kein CS2-Profil auf Faceit`);
+    if (!game) throw new Error(`errNoCs2|${player.nickname}`);
 
     const stats = await this.get<any>(`/players/${player.player_id}/stats/${GAME}`);
     const l: Lifetime = stats.lifetime ?? {};

@@ -192,7 +192,7 @@ export class Tracker extends EventEmitter {
 
   async poll() {
     if (!this.state.nickname && !this.source.demo) {
-      this.state.error = 'Kein Faceit-Nickname gesetzt';
+      this.state.error = 'errNoNickname';
       this.emit('state', this.state);
       return;
     }
