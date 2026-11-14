@@ -73,7 +73,7 @@ function renderChart() {
   // Wertebereich: Verlauf plus nahe Level-Grenze, auf runde Schritte erweitert
   let lo = data.low, hi = data.peak;
   const next = data.nextLevel;
-  if (next && next.elo - hi <= 150) hi = next.elo;
+  if (next && next.elo - hi <= 150) hi = Math.max(hi, next.elo);
   const step = [25, 50, 100, 200, 500].find((s) => (hi - lo) / s <= 4) ?? 1000;
   lo = Math.floor((lo - step / 4) / step) * step;
   hi = Math.ceil((hi + step / 4) / step) * step;
@@ -93,11 +93,14 @@ function renderChart() {
   }
 
   const defs = svg('defs', {}, chart);
+  // Fläche nie über den Rahmen hinaus
+  const clip = svg('clipPath', { id: 'eloClip' }, defs);
+  svg('rect', { x: left, y: top, width: W - left - right, height: H - top - bottom }, clip);
   const grad = svg('linearGradient', { id: 'eloFill', x1: 0, x2: 0, y1: 0, y2: 1 }, defs);
   svg('stop', { offset: 0, 'stop-color': '#ff5500', 'stop-opacity': 0.35 }, grad);
   svg('stop', { offset: 1, 'stop-color': '#ff5500', 'stop-opacity': 0 }, grad);
   const line = points.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(p.elo).toFixed(1)}`).join('');
-  svg('path', { d: `${line}L${x(matches)},${H - bottom}L${x(0)},${H - bottom}Z`, fill: 'url(#eloFill)' }, chart);
+  svg('path', { d: `${line}L${x(matches)},${H - bottom}L${x(0)},${H - bottom}Z`, fill: 'url(#eloFill)', 'clip-path': 'url(#eloClip)' }, chart);
   svg('path', { d: line, fill: 'none', stroke: '#ff5500', 'stroke-width': 2.5, 'stroke-linejoin': 'round' }, chart);
 
   points.forEach((p, i) => {
