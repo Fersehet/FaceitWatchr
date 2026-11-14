@@ -157,6 +157,7 @@ const STYLE_FIELDS = [
   ['showAvatarFrame', 'showFrame', 'checkbox'],
   ['statsPeriod', 'statsPeriod', 'select', { options: [['cycle', 'statsCycle'], ['season', 'statsSeason'], ['alltime', 'statsAllTime']] }],
   ['statsCycleSeconds', 'statsCycleSeconds', 'number', { min: 3, max: 600 }],
+  ['scale', 'scale', 'select', { options: [[1, '100 %'], [1.5, '150 %'], [2, '200 %'], [3, '300 %']] }],
 ];
 
 function renderStyleForm() {
@@ -167,14 +168,15 @@ function renderStyleForm() {
     if (key === 'statsCycleSeconds' && (overlay.style.statsPeriod ?? 'cycle') !== 'cycle') continue;
     const label = tx(labelKey);
     const set = (v) => {
-      overlay.style[key] = key === 'statsCycleSeconds' ? Math.max(3, v || 10) : v;
+      overlay.style[key] = key === 'statsCycleSeconds' ? Math.max(3, v || 10) : key === 'scale' ? Number(v) : v;
       changed();
       if (key === 'statsPeriod') renderStyleForm();
+      if (key === 'scale') showObsSize();
     };
     if (type === 'select') {
       const options = attrs.options.map(([value, key]) => [value, t(key)]);
       const select = document.createElement('select');
-      for (const [value, text] of options) select.add(new Option(text, value, false, value === overlay.style[key]));
+      for (const [value, text] of options) select.add(new Option(text, value, false, String(value) === String(overlay.style[key])));
       select.addEventListener('change', () => set(select.value));
       form.appendChild(field(label, select, 'full'));
     } else if (type === 'checkbox') {
@@ -183,6 +185,12 @@ function renderStyleForm() {
       form.appendChild(field(label, input(type, overlay.style[key], set, attrs)));
     }
   }
+}
+
+/** Breite und Höhe für die OBS-Browserquelle passend zur gewählten Größe */
+function showObsSize() {
+  const { width, height, scale: zoom } = overlay.style;
+  setText($('obsHint'), 'obsHint', { w: Math.round(width * zoom), h: Math.round(height * zoom) });
 }
 
 // ---------- Overlays verwalten ----------
@@ -199,6 +207,7 @@ async function openOverlay(id) {
   } catch {}
   $('overlayName').value = overlay.name;
   $('obsUrl').value = `${location.origin}/overlay/${overlay.id}`;
+  showObsSize();
   renderOverlaySelect();
   renderWidgetList();
   renderStyleForm();
@@ -221,9 +230,9 @@ function renderStatus() {
     status.title = status.textContent;
   } else {
     status.className = `status ${state?.demo ? 'demo' : 'live'}`;
-    const [key, vars] = state?.demo ? ['demo'] : state?.player ? ['live', { n: state.player.nickname }] : ['connecting'];
+    const key = state?.demo ? 'demo' : state?.player ? 'live' : 'connecting';
     // Nur die aktive Sprache: übereinandergelegte Sprachen machen die Pille so breit wie die längste
-    status.textContent = status.title = t(key, vars);
+    status.textContent = status.title = t(key);
   }
   if (document.activeElement !== $('nickname')) $('nickname').value = state?.nickname ?? '';
   if (document.activeElement !== $('frameUrl')) $('frameUrl').value = state?.avatarFrameOverride ?? '';

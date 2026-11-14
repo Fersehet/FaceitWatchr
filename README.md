@@ -66,19 +66,19 @@ Open **http://localhost:3000** in your browser and sign in with user `admin` and
 
 1. In the editor under **Add to OBS**, copy the URL, e.g. `http://localhost:3000/overlay/abcd1234`.
 2. In OBS choose **Add source → Browser** and paste the URL.
-3. Set width 420 and height 170.
+3. Set the width and height shown below the URL in the editor (420 × 170 at 100 % size). On a 1440p or 4K canvas, pick a larger **Size in OBS** under Design first so the overlay stays sharp.
 
 If the server runs on another machine, set `ADMIN_PASSWORD` (without it the server only listens on this computer) and use its IP instead of `localhost`. Overlays can be read without signing in, the editor cannot.
 
 ## Troubleshooting
 
-- **The editor shows "Demo mode (no API key)":** the server found no key. The console window says why when it starts. Check that `.env` has a line `FACEIT_API_KEY=your-key` and restart the server. On Windows, make sure the file is called `.env` and not `.env.txt`.
+- **The editor shows "Demo mode (sample data)":** the server found no API key. The console window says why when it starts. Check that `.env` has a line `FACEIT_API_KEY=your-key` and restart the server. On Windows, make sure the file is called `.env` and not `.env.txt`.
 - **"Too many attempts":** after 10 wrong passwords the login is locked for up to 15 minutes.
 - **The editor says the API key is invalid:** create a new key of type **Server side** at [developers.faceit.com](https://developers.faceit.com) and put it into `.env`.
 - **The editor says the player was not found or has no CS2 profile:** check the spelling of your Faceit nickname in the editor.
 - **The editor says the rate limit was reached:** set a higher `POLL_INTERVAL_SECONDS` in `.env` (default 60).
 - **Nothing shows up in OBS:** open the OBS URL in your browser. If it stays empty there, copy the URL again from the editor under **Add to OBS**. If the server runs on another machine, use its IP instead of `localhost`.
-- **The overlay is cut off in OBS:** set the width of the Browser source to 420 and the height to 170.
+- **The overlay is cut off in OBS:** set the width and height of the Browser source to the values shown in the editor under **Add to OBS**.
 - **Changes don't show up after an update:** an old server may still be running in the background and holding port `3000`. Close every terminal running `npm start` (or end the `node` processes), then run `npm start` once. If the port is used by something else, set another one, e.g. `PORT=3001` in `.env`.
 - **The Elo of a match looks wrong:** if Faceit's Elo history can't be read, or several matches ended between two checks, the Elo is estimated and shown faded. Enter the real Elo under **Elo of recent matches** in the editor. Hub and tournament matches without Elo show 0.
 
