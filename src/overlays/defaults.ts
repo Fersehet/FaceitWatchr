@@ -73,6 +73,7 @@ export function defaultStyle(): OverlayStyle {
     showAvatarFrame: true,
     statsPeriod: 'cycle',
     statsCycleSeconds: 10,
+    scale: 1,
   };
 }
 
@@ -94,7 +95,7 @@ export function createDefaultOverlay(name = 'Standard'): Overlay {
  */
 export function upgradeOverlay(overlay: Overlay): Overlay {
   // Nur diese Design-Werte lassen sich im Editor einstellen, alle anderen stehen fest auf dem Standard
-  const editable = ['background', 'backgroundOpacity', 'textColor', 'accentColor', 'showAvatarFrame', 'statsPeriod', 'statsCycleSeconds'] as const;
+  const editable = ['background', 'backgroundOpacity', 'textColor', 'accentColor', 'showAvatarFrame', 'statsPeriod', 'statsCycleSeconds', 'scale'] as const;
   const style: Partial<OverlayStyle> = overlay.style ?? {};
   overlay.style = { ...defaultStyle(), ...Object.fromEntries(editable.filter((k) => style[k] !== undefined).map((k) => [k, style[k]])) };
   const saved = new Map<string, Widget>(overlay.widgets.map((w) => [w.type, w]));

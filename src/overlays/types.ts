@@ -50,6 +50,8 @@ export interface OverlayStyle {
   statsPeriod: 'cycle' | 'season' | 'alltime';
   /** Sekunden bis zum nächsten Wechsel bei cycle */
   statsCycleSeconds: number;
+  /** Vergrößerung der OBS-Browserquelle, damit das Overlay bei großen Auflösungen scharf bleibt */
+  scale: number;
 }
 
 export interface Overlay {

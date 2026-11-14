@@ -26,6 +26,8 @@
       });
 
       function draw() {
+        // Größer gezeichnet statt in OBS hochgezogen, damit es scharf bleibt
+        document.body.style.zoom = overlay.style.scale;
         renderOverlay(container, overlay, state);
       }
 
