@@ -465,7 +465,7 @@ const css = document.createElement('style');
 css.textContent =
   'fw-i18n{display:inline-grid}fw-i18n.blk{display:grid}fw-i18n>fw-l{grid-area:1/1;display:block;visibility:hidden}' +
   `${LANGS.map((l) => `html[lang="${l}"] fw-l[lang="${l}"]:not(.off)`).join(',')}{visibility:visible}` +
-  'button fw-i18n{text-align:center}';
+  'button fw-i18n{text-align:center}button fw-i18n>fw-l{align-self:center}';
 document.head.append(css);
 const BLOCK = /^(DIV|P|H[1-6]|LI|DT|DD)$/;
 
