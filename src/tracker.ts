@@ -20,6 +20,11 @@ export interface SessionStats {
   matches: number;
   wins: number;
   losses: number;
+  winRate: number;
+  /** Aus den eigenen gespeicherten Matches der Session, null ohne Match */
+  kd: number | null;
+  hsPercent: number | null;
+  adr: number | null;
 }
 
 export interface SeasonStats {
@@ -231,6 +236,8 @@ export class Tracker extends EventEmitter {
       matches,
       wins,
       losses: matches - wins,
+      winRate: matches ? Math.round((wins / matches) * 100) : 0,
+      ...this.savedAverages(player.playerId, session.startedAt),
     };
   }
 
@@ -495,7 +502,23 @@ export class Tracker extends EventEmitter {
   /** Die Match-Historie wird nur neu geladen, wenn seit der letzten Berechnung ein Match dazukam (auch eins ohne Elo). */
   private seasonMatchesAt = '';
 
+  /** Faceit wird höchstens alle 6 Stunden nach einer neuen Season gefragt. */
+  private seasonCheckedAt = 0;
+
+  /** Beginnt bei Faceit eine neue Season (späteres Startdatum als das gespeicherte), springt der Season-Start automatisch mit. */
+  private async checkNewSeason(playerId: string) {
+    if (!this.source.fetchSeasonStart || Date.now() - this.seasonCheckedAt < 6 * 60 * 60 * 1000) return;
+    this.seasonCheckedAt = Date.now();
+    const start = await this.source.fetchSeasonStart(playerId);
+    // Nur eine bereits begonnene Season, die neuer ist als das gespeicherte Datum. Ein bewusst geleertes Datum bleibt leer.
+    if (start && this.state.seasonStart && start > this.state.seasonStart && start <= new Date().toISOString().slice(0, 10)) {
+      this.state.seasonStart = start;
+      this.storage.setSetting('seasonStart', start);
+    }
+  }
+
   private async updateSeason(player: PlayerSnapshot) {
+    await this.checkNewSeason(player.playerId);
     const start = this.state.seasonStart;
     if (!start) {
       this.state.season = null;

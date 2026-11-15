@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { Overlay, OverlayStyle, Widget, WidgetType } from './types.ts';
+import type { Overlay, OverlayStyle, StatsPeriod, Widget, WidgetType } from './types.ts';
 
 const LABELS: Record<WidgetType, string> = {
   avatar: 'Avatar',
@@ -19,6 +19,8 @@ const LABELS: Record<WidgetType, string> = {
 
 /** Beschriftung der Season WR, während das Overlay die All-Time-Werte zeigt */
 const ALL_TIME_WR = 'All-Time WR';
+/** … und während es die Session-Werte zeigt */
+const SESSION_WR = 'Session WR';
 
 type Layout = Partial<Pick<Widget, 'x' | 'y' | 'fontSize' | 'enabled' | 'showLabel'>>;
 
@@ -51,7 +53,7 @@ export function defaultWidgets(): Widget[] {
     label: LABELS[type],
     showLabel: true,
     ...LAYOUT[type],
-    ...(type === 'seasonWinRate' ? { altLabel: ALL_TIME_WR } : {}),
+    ...(type === 'seasonWinRate' ? { altLabel: ALL_TIME_WR, sessionLabel: SESSION_WR } : {}),
   }));
 }
 
@@ -71,7 +73,7 @@ export function defaultStyle(): OverlayStyle {
     positiveColor: '#32d74b',
     negativeColor: '#ff453a',
     showAvatarFrame: true,
-    statsPeriod: 'cycle',
+    statsPeriods: ['alltime', 'season', 'session'],
     statsCycleSeconds: 10,
     scale: 1,
   };
@@ -95,8 +97,10 @@ export function createDefaultOverlay(name = 'Standard'): Overlay {
  */
 export function upgradeOverlay(overlay: Overlay): Overlay {
   // Nur diese Design-Werte lassen sich im Editor einstellen, alle anderen stehen fest auf dem Standard
-  const editable = ['background', 'backgroundOpacity', 'textColor', 'accentColor', 'showAvatarFrame', 'statsPeriod', 'statsCycleSeconds', 'scale'] as const;
-  const style: Partial<OverlayStyle> = overlay.style ?? {};
+  const editable = ['background', 'backgroundOpacity', 'textColor', 'accentColor', 'showAvatarFrame', 'statsPeriods', 'statsCycleSeconds', 'scale'] as const;
+  const style: Partial<OverlayStyle> & { statsPeriod?: string } = overlay.style ?? {};
+  // Früher nur Season/All-Time: „Abwechselnd“ wechselt jetzt durch alle drei, „Nur …“ bleibt fest
+  if (!style.statsPeriods && style.statsPeriod) style.statsPeriods = style.statsPeriod === 'cycle' ? ['alltime', 'season', 'session'] : [style.statsPeriod as StatsPeriod];
   overlay.style = { ...defaultStyle(), ...Object.fromEntries(editable.filter((k) => style[k] !== undefined).map((k) => [k, style[k]])) };
   const saved = new Map<string, Widget>(overlay.widgets.map((w) => [w.type, w]));
   const enabled = new Map<string, boolean>(overlay.widgets.map((w) => [w.type, w.enabled]));

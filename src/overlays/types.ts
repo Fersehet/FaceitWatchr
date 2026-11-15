@@ -29,7 +29,11 @@ export interface Widget {
   showLabel: boolean;
   /** Beschriftung, solange die All-Time-Werte zu sehen sind (nur Season WR) */
   altLabel?: string;
+  /** Beschriftung, solange die Session-Werte zu sehen sind (nur Season WR) */
+  sessionLabel?: string;
 }
+
+export type StatsPeriod = 'alltime' | 'season' | 'session';
 
 export interface OverlayStyle {
   width: number;
@@ -46,9 +50,9 @@ export interface OverlayStyle {
   positiveColor: string;
   negativeColor: string;
   showAvatarFrame: boolean;
-  /** Season WR, K/D, HS %, ADR und Matches: cycle = abwechselnd Season und All-Time, sonst fest */
-  statsPeriod: 'cycle' | 'season' | 'alltime';
-  /** Sekunden bis zum nächsten Wechsel bei cycle */
+  /** Season WR, K/D, HS %, ADR und Matches wechseln der Reihe nach durch diese Zeiträume (einer = fest) */
+  statsPeriods: StatsPeriod[];
+  /** Sekunden bis zum nächsten Wechsel */
   statsCycleSeconds: number;
   /** Vergrößerung der OBS-Browserquelle, damit das Overlay bei großen Auflösungen scharf bleibt */
   scale: number;

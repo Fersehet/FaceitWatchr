@@ -77,36 +77,49 @@ function signed(n) {
   return n > 0 ? `+${n}` : String(n);
 }
 
-/** Diese Stats wechseln zwischen Season und All-Time. */
+/** Diese Stats wechseln zwischen All-Time, Season und Session. */
 const PERIOD_WIDGETS = new Set(['seasonWinRate', 'kd', 'hsPercent', 'adr', 'matches']);
+const PERIODS = ['alltime', 'season', 'session'];
 
 /**
- * Welche Werte gerade zu sehen sind: 'season' oder 'alltime'. Beim Wechseln hängt die Phase nur an der Uhrzeit,
- * so zeigen OBS und Editor-Vorschau immer dasselbe. Ohne Season-Daten (kein Season-Start) immer All-Time.
+ * Die gewählten Zeiträume, für die es Daten gibt: Season nur mit Season-Start, Session erst ab dem ersten Match.
+ * Bleibt keiner übrig, All-Time.
+ */
+function availablePeriods(style, state) {
+  const chosen = style.statsPeriods ?? PERIODS;
+  const has = { alltime: true, season: !!state?.season, session: !!state?.session?.matches };
+  const list = PERIODS.filter((p) => chosen.includes(p) && has[p]);
+  return list.length ? list : ['alltime'];
+}
+
+/**
+ * Welche Werte gerade zu sehen sind: 'alltime', 'season' oder 'session'. Beim Wechseln hängt die Phase nur an der Uhrzeit,
+ * so zeigen OBS und Editor-Vorschau immer dasselbe.
  */
 export function statsPeriod(style, state, now = Date.now()) {
-  if (!state?.season) return 'alltime';
-  const mode = style.statsPeriod ?? 'cycle';
-  if (mode !== 'cycle') return mode;
-  return Math.floor(now / cycleMs(style)) % 2 === 0 ? 'season' : 'alltime';
+  const list = availablePeriods(style, state);
+  return list[Math.floor(now / cycleMs(style)) % list.length];
 }
 
 function cycleMs(style) {
   return Math.max(3, Number(style.statsCycleSeconds) || 10) * 1000;
 }
 
-/** Season- oder All-Time-Werte für die wechselnden Stats. */
+/** All-Time-, Season- oder Session-Werte für die wechselnden Stats. */
 function periodValues(state, period) {
   const p = state?.player;
-  const season = state?.season;
-  if (period === 'season' && season) {
-    return { matches: season.matches, winRate: season.winRate, kd: season.kd ?? null, hsPercent: season.hsPercent ?? null, adr: season.adr ?? null };
+  const d = period === 'season' ? state?.season : period === 'session' ? state?.session : null;
+  if (d) {
+    return { matches: d.matches, winRate: d.winRate, kd: d.kd ?? null, hsPercent: d.hsPercent ?? null, adr: d.adr ?? null };
   }
   return p ? { matches: p.matches, winRate: p.winRate, kd: p.kd, hsPercent: p.hsPercent, adr: p.adr } : null;
 }
 
 function widgetLabel(widget, period) {
-  return widget.type === 'seasonWinRate' && period === 'alltime' && widget.altLabel ? widget.altLabel : widget.label;
+  if (widget.type !== 'seasonWinRate') return widget.label;
+  if (period === 'alltime' && widget.altLabel) return widget.altLabel;
+  if (period === 'session' && widget.sessionLabel) return widget.sessionLabel;
+  return widget.label;
 }
 
 /** Baut den Inhalt eines einzelnen Widgets. Gibt null zurück, wenn (noch) keine Daten da sind. */
@@ -230,7 +243,7 @@ function widgetContent(widget, style, state, period = 'alltime') {
 const EASE = 'cubic-bezier(0.2, 0.8, 0.2, 1)';
 
 /**
- * Wechsel Season ↔ All-Time: Der alte Wert rollt nach oben weg, der neue kommt von unten nach,
+ * Wechsel zwischen All-Time, Season und Session: Der alte Wert rollt nach oben weg, der neue kommt von unten nach,
  * von links nach rechts leicht versetzt. Die Beschriftung blendet über.
  */
 function rollIn(slot, before, index, accent) {
@@ -271,7 +284,7 @@ const reducedMotion = () => typeof matchMedia === 'function' && matchMedia('(pre
 
 /**
  * Zeichnet ein Overlay in `container`.
- * Wechseln die Stats zwischen Season und All-Time, zeichnet sich das Overlay zum Wechsel selbst neu;
+ * Wechseln die Stats zwischen All-Time, Season und Session, zeichnet sich das Overlay zum Wechsel selbst neu;
  * mit `redraw` übernimmt das stattdessen der Aufrufer (z. B. wenn er danach noch etwas anpasst).
  */
 export function renderOverlay(container, overlay, state, options = {}) {
@@ -284,7 +297,7 @@ export function renderOverlay(container, overlay, state, options = {}) {
   const animate = before !== undefined && before !== period && !reducedMotion();
   container.__fwPeriod = period;
   clearTimeout(container.__fwTimer);
-  if ((style.statsPeriod ?? 'cycle') === 'cycle' && state?.season) {
+  if (availablePeriods(style, state).length > 1) {
     const ms = cycleMs(style);
     container.__fwTimer = setTimeout(() => (redraw ? redraw() : renderOverlay(container, overlay, state, options)), ms - (Date.now() % ms) + 20);
   }
