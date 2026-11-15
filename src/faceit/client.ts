@@ -175,6 +175,28 @@ export class FaceitClient implements StatsSource {
   }
 
   /**
+   * Start der aktuellen Faceit-Season als YYYY-MM-DD. Die Season hängt an der Liga der Matchmaking-Queue:
+   * letztes Matchmaking-Match → /matchmakings/{id} → league_id → /leagues/{id} → season.start_date.
+   * Ohne Treffer oder bei einem Fehler null, dann bleibt das bisherige Datum.
+   */
+  async fetchSeasonStart(playerId: string): Promise<string | null> {
+    try {
+      const history = await this.get<any>(`/players/${playerId}/history?game=${GAME}&offset=0&limit=20`);
+      const queue = (history.items ?? []).find((m: any) => m.competition_type && isRanked(m) && m.competition_id)?.competition_id;
+      if (!queue) return null;
+      const leagueId = (await this.get<any>(`/matchmakings/${queue}`)).league_id;
+      if (!leagueId) return null;
+      const raw = (await this.get<any>(`/leagues/${leagueId}`)).season?.start_date;
+      // Faceit liefert Zeitstempel teils als Text, teils als Sekunden oder Millisekunden
+      const n = num(raw);
+      const date = new Date(n === null ? String(raw) : n < 1e12 ? n * 1000 : n);
+      return raw && !Number.isNaN(date.getTime()) ? date.toISOString().slice(0, 10) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
    * Die offizielle Data API liefert keine Kosmetik. Die Faceit-Webseite lädt den ausgerüsteten
    * Avatar-Rahmen über die interne Schnittstelle /api/user-summary/v2/list (POST {"ids": [...]}).
    * Ändert Faceit diese Schnittstelle, gibt es einfach keinen Rahmen.
