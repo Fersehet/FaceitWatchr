@@ -20,6 +20,11 @@ export interface SessionStats {
   matches: number;
   wins: number;
   losses: number;
+  winRate: number;
+  /** Aus den eigenen gespeicherten Matches der Session, null ohne Match */
+  kd: number | null;
+  hsPercent: number | null;
+  adr: number | null;
 }
 
 export interface SeasonStats {
@@ -231,6 +236,8 @@ export class Tracker extends EventEmitter {
       matches,
       wins,
       losses: matches - wins,
+      winRate: matches ? Math.round((wins / matches) * 100) : 0,
+      ...this.savedAverages(player.playerId, session.startedAt),
     };
   }
 

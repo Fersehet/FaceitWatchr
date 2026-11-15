@@ -155,7 +155,7 @@ const STYLE_FIELDS = [
   ['textColor', 'textColor', 'color'],
   ['accentColor', 'accentColor', 'color'],
   ['showAvatarFrame', 'showFrame', 'checkbox'],
-  ['statsPeriod', 'statsPeriod', 'select', { options: [['cycle', 'statsCycle'], ['season', 'statsSeason'], ['alltime', 'statsAllTime']] }],
+  ['statsPeriods', 'statsPeriods', 'periods'],
   ['statsCycleSeconds', 'statsCycleSeconds', 'number', { min: 3, max: 600 }],
   ['scale', 'scale', 'select', { options: [[1, '100 %'], [1.5, '150 %'], [2, '200 %'], [3, '300 %']] }],
 ];
@@ -165,15 +165,25 @@ function renderStyleForm() {
   form.replaceChildren();
   for (const [key, labelKey, type, attrs] of STYLE_FIELDS) {
     // Die Sekunden gelten nur beim Wechseln
-    if (key === 'statsCycleSeconds' && (overlay.style.statsPeriod ?? 'cycle') !== 'cycle') continue;
+    if (key === 'statsCycleSeconds' && (overlay.style.statsPeriods ?? []).length < 2) continue;
     const label = tx(labelKey);
     const set = (v) => {
       overlay.style[key] = key === 'statsCycleSeconds' ? Math.max(3, v || 10) : key === 'scale' ? Number(v) : v;
       changed();
-      if (key === 'statsPeriod') renderStyleForm();
+      if (key === 'statsPeriods') renderStyleForm();
       if (key === 'scale') showObsSize();
     };
-    if (type === 'select') {
+    if (type === 'periods') {
+      // Ein Schalter je Zeitraum, die Werte unten wechseln der Reihe nach durch alle eingeschalteten. Einer bleibt immer an.
+      const chosen = overlay.style.statsPeriods ?? [];
+      form.appendChild(field(label, document.createElement('span'), 'full'));
+      for (const [period, textKey] of [['alltime', 'statsAllTime'], ['season', 'statsSeason'], ['session', 'statsSession']]) {
+        const on = chosen.includes(period);
+        const box = input('checkbox', on, (checked) => set(['alltime', 'season', 'session'].filter((p) => (p === period ? checked : chosen.includes(p)))));
+        box.disabled = on && chosen.length === 1;
+        form.appendChild(field(tx(textKey), box, 'full'));
+      }
+    } else if (type === 'select') {
       const options = attrs.options.map(([value, key]) => [value, t(key)]);
       const select = document.createElement('select');
       for (const [value, text] of options) select.add(new Option(text, value, false, String(value) === String(overlay.style[key])));
