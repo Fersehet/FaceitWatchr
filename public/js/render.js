@@ -55,6 +55,15 @@ function arcPath(r, fromDeg, sweepDeg) {
 }
 
 export function levelBadgeSvg(level) {
+  // Ohne Elo (Kalibrierung zu Season-Beginn) wie bei Faceit: grauer Ring mit Fragezeichen
+  if (level == null) {
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+    <circle cx="50" cy="50" r="48" fill="#1f2125" stroke="#2c2f34" stroke-width="2"/>
+    <path d="${arcPath(36, 225, 270)}" fill="none" stroke="#5c5f64" stroke-width="9"/>
+    <text x="50" y="51" text-anchor="middle" dominant-baseline="central" font-family="Arial, Helvetica, sans-serif"
+      font-weight="700" font-size="38" fill="#9aa0a6">?</text>
+  </svg>`;
+  }
   const n = Math.min(10, Math.max(1, Math.round(level)));
   const color = levelColor(n);
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
@@ -159,10 +168,17 @@ function widgetContent(widget, style, state, period = 'alltime') {
       return p ? el('div', { fontWeight: 700 }, p.nickname) : null;
     case 'level': {
       if (!p) return null;
-      return levelBadge(p.level, size);
+      return levelBadge(state?.calibration ? null : p.level, size);
     }
-    case 'elo':
-      return p ? el('div', { fontWeight: 700 }, `${p.elo} ELO`) : null;
+    case 'elo': {
+      if (!p) return null;
+      // Während der Kalibrierung zu Season-Beginn versteckt Faceit die Elo: dann die Bilanz der Matchmaking-Matches
+      const c = state?.calibration;
+      if (!c) return el('div', { fontWeight: 700 }, `${p.elo} ELO`);
+      const wrap = el('div', { fontWeight: 700 });
+      wrap.append(el('span', { color: style.positiveColor }, `${c.wins}W`), el('span', {}, '\u00a0-\u00a0'), el('span', { color: style.negativeColor }, `${c.losses}L`));
+      return wrap;
+    }
     case 'eloProgress': {
       if (!p) return null;
       const idx = Math.min(p.level, 10) - 1;

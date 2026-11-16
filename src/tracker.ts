@@ -98,6 +98,8 @@ export interface LiveState {
   player: PlayerSnapshot | null;
   session: SessionStats | null;
   season: SeasonStats | null;
+  /** Kalibrierung nach einem Elo-Reset (die ersten 10 Matchmaking-Matches, Elo bei Faceit versteckt): Bilanz nur dieser Matches, sonst null */
+  calibration: { wins: number; losses: number } | null;
   /** Die letzten Matches mit Elo-Änderung, neuestes zuerst */
   recentMatches: RecentMatch[];
   error: string | null;
@@ -135,6 +137,7 @@ export class Tracker extends EventEmitter {
       player: null,
       session: null,
       season: null,
+      calibration: null,
       recentMatches: [],
       error: null,
       updatedAt: null,
@@ -206,11 +209,13 @@ export class Tracker extends EventEmitter {
       player.avatarFrame = await this.avatarFrame(player.playerId);
       const previous = this.storage.latestSnapshot(player.playerId);
       this.storage.saveSnapshot(player);
-      await this.recordNewMatches(previous, player);
+      const newRanked = await this.recordNewMatches(previous, player);
+      this.detectSeasonReset(previous, player, newRanked);
       this.state.recentMatches = await this.recentMatches(player);
       this.state.player = player;
       this.state.session = this.sessionStats(player);
       await this.updateSeason(player);
+      this.state.calibration = this.calibration(player.playerId);
       this.state.error = null;
     } catch (err) {
       this.state.error = err instanceof Error ? err.message : String(err);
@@ -322,7 +327,9 @@ export class Tracker extends EventEmitter {
    * Gemeldet wird erst, wenn die Elo-Änderung bekannt ist, spätestens nach ELO_WAIT_POLLS Abrufen (dann eloChange = null).
    * Beim allerersten Abruf werden die letzten Matches nur still gespeichert.
    */
-  private async recordNewMatches(previous: PlayerSnapshot | null, player: PlayerSnapshot) {
+  /** Gibt die Zahl neuer Matchmaking-Matches zurück, -1 wenn der Abruf fehlschlug. */
+  private async recordNewMatches(previous: PlayerSnapshot | null, player: PlayerSnapshot): Promise<number> {
+    let newRanked = 0;
     try {
       // Bei jedem Abruf nachsehen: Matches ohne Elo (Hubs, Turniere, …) ändern weder Elo noch sicher die Match-Zahl
       const isKnown = (id: string) => this.storage.hasMatch(id) || this.pending.some((p) => p.match.matchId === id);
@@ -332,6 +339,7 @@ export class Tracker extends EventEmitter {
       for (const d of fresh) {
         // Laufen zwei Abrufe gleichzeitig (Timer und „Jetzt aktualisieren“), hat der andere das Match evtl. schon erfasst
         if (isKnown(d.matchId)) continue;
+        if (isRanked(d)) newRanked++;
         const match: MatchResult = { ...d, avatar: player.avatar, avatarFrame: player.avatarFrame, eloBefore: null, eloAfter: null, eloChange: null, level: player.level };
         if (!isRanked(d)) {
           // Ohne Elo steht die Änderung sofort fest: 0
@@ -348,6 +356,7 @@ export class Tracker extends EventEmitter {
         }
       }
     } catch (err) {
+      newRanked = -1;
       console.error('Match-Details konnten nicht geladen werden:', err instanceof Error ? err.message : err);
     }
 
@@ -370,6 +379,7 @@ export class Tracker extends EventEmitter {
       this.pending = this.pending.filter((x) => x !== p);
       this.publish(p.match, true);
     }
+    return newRanked;
   }
 
   /** Matches, bei denen die MVP-Abfrage schon einmal fehlgeschlagen ist (nicht bei jedem Abruf erneut fragen). */
@@ -502,23 +512,31 @@ export class Tracker extends EventEmitter {
   /** Die Match-Historie wird nur neu geladen, wenn seit der letzten Berechnung ein Match dazukam (auch eins ohne Elo). */
   private seasonMatchesAt = '';
 
-  /** Faceit wird höchstens alle 6 Stunden nach einer neuen Season gefragt. */
-  private seasonCheckedAt = 0;
+  /**
+   * Neue Season = Faceit setzt die Elo zurück (bzw. versteckt sie zur Kalibrierung). Erkannt, wenn sich die Elo um mindestens 50
+   * ändert, ohne dass ein Matchmaking-Match dazukam; kleinere Änderungen sind z. B. Elo-Rückgaben nach einem Cheater-Bann.
+   * Dann beginnt die Season jetzt; sonst bleibt das Datum, auch ein eigenes aus dem Editor.
+   */
+  private detectSeasonReset(previous: PlayerSnapshot | null, player: PlayerSnapshot, newRanked: number) {
+    if (!previous || previous.playerId !== player.playerId || !previous.elo || newRanked !== 0) return;
+    if (player.matches !== previous.matches || Math.abs(player.elo - previous.elo) < 50) return;
+    const now = new Date().toISOString();
+    this.state.seasonStart = now.slice(0, 10);
+    this.storage.setSetting('seasonStart', this.state.seasonStart);
+    this.storage.setSetting('seasonResetAt', now);
+  }
 
-  /** Beginnt bei Faceit eine neue Season (späteres Startdatum als das gespeicherte), springt der Season-Start automatisch mit. */
-  private async checkNewSeason(playerId: string) {
-    if (!this.source.fetchSeasonStart || Date.now() - this.seasonCheckedAt < 6 * 60 * 60 * 1000) return;
-    this.seasonCheckedAt = Date.now();
-    const start = await this.source.fetchSeasonStart(playerId);
-    // Nur eine bereits begonnene Season, die neuer ist als das gespeicherte Datum. Ein bewusst geleertes Datum bleibt leer.
-    if (start && this.state.seasonStart && start > this.state.seasonStart && start <= new Date().toISOString().slice(0, 10)) {
-      this.state.seasonStart = start;
-      this.storage.setSetting('seasonStart', start);
-    }
+  /** Nach einem erkannten Elo-Reset zählen die ersten 10 Matchmaking-Matches ab dem Reset (ohne Spiele ohne Elo) zur Kalibrierung. */
+  private calibration(playerId: string): LiveState['calibration'] {
+    const resetAt = this.storage.getSetting('seasonResetAt');
+    if (!resetAt || this.state.seasonStart !== resetAt.slice(0, 10)) return null;
+    const ranked = this.sessionMatches(playerId, resetAt, 5000).filter(isRanked);
+    if (ranked.length >= 10) return null;
+    const wins = ranked.filter((m) => m.result === 'W').length;
+    return { wins, losses: ranked.length - wins };
   }
 
   private async updateSeason(player: PlayerSnapshot) {
-    await this.checkNewSeason(player.playerId);
     const start = this.state.seasonStart;
     if (!start) {
       this.state.season = null;

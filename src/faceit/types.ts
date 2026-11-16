@@ -97,8 +97,6 @@ export interface StatsSource {
   fetchAvatarFrame(playerId: string): Promise<string>;
   /** Elo nach den letzten `count` Matches, neueste zuerst (Best-Effort, [] wenn nicht verfügbar). */
   fetchEloHistory?(playerId: string, count: number): Promise<EloAfterMatch[]>;
-  /** Start der aktuellen Faceit-Season (YYYY-MM-DD), null = nicht ermittelbar (Best-Effort). */
-  fetchSeasonStart?(playerId: string): Promise<string | null>;
   /** Ob der Spieler im Match die meisten Kills hatte; null = nicht ermittelbar. Für ältere gespeicherte Matches. */
   fetchMatchMvp?(matchId: string, playerId: string): Promise<boolean | null>;
 }
