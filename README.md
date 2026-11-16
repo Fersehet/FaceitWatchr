@@ -19,7 +19,7 @@ Build your own Faceit overlays (Elo, level, K/D, session stats, …) for OBS and
 
 **Pick your stats:** every stat can be shown or hidden on its own, each one has a fixed spot. Colours are set under **Design**.
 
-**All-time, season and session:** the stats at the bottom (win rate, K/D, HS %, ADR, matches) rotate between your all-time, season and session values. Under **Design** you choose which of the three are shown and how many seconds each one stays. Session values appear once you have played a match in the session. When Faceit resets your Elo for a new season, the season start date switches to that day automatically, and during the 10 calibration matches the overlay shows your matchmaking wins and losses instead of the hidden Elo. A date you set in the editor stays until the next reset.
+**All-time, season and session:** the stats at the bottom (win rate, K/D, HS %, ADR, matches) rotate between your all-time, season and session values. Under **Design** you choose which of the three are shown and how many seconds each one stays. Session values appear once you have played a match in the session. When Faceit resets your Elo for a new season, the season start date switches to that day automatically, and during the 10 calibration matches the overlay shows your matchmaking wins and losses instead of your Elo. A date you set in the editor stays until the next reset.
 
 ![Editor with the stats list](docs/screenshots/editor-widgets.png)
 
