@@ -2,8 +2,14 @@ import { EventEmitter } from 'node:events';
 import { LEVEL_THRESHOLDS, type MatchResult, type PlayerSnapshot, type RecentMatch, type StatsSource } from './faceit/types.ts';
 import type { Storage } from './storage/storage.ts';
 
-/** Beginn der aktuellen FACEIT-Season (Season 9), solange im Editor kein eigenes Datum gesetzt ist. */
-const DEFAULT_SEASON_START = '2026-08-05';
+/** Startdaten der FACEIT-Seasons (Season 9, Season 10). Die Data API kennt sie nicht, neue Seasons hier ergänzen. */
+const SEASON_STARTS = ['2026-08-05', '2026-12-09'];
+
+/** Start der zuletzt begonnenen Season */
+function latestSeasonStart(): string {
+  const today = new Date().toISOString().slice(0, 10);
+  return SEASON_STARTS.filter((d) => d <= today).at(-1) ?? SEASON_STARTS[0];
+}
 
 export interface Session {
   /** Gehört die Session zu einem anderen Spieler (z. B. Demo → echter Account), wird neu gestartet. */
@@ -130,7 +136,7 @@ export class Tracker extends EventEmitter {
     this.state = {
       demo: source.demo,
       nickname: storage.getSetting('nickname') ?? defaultNickname,
-      seasonStart: storage.getSetting('seasonStart') ?? DEFAULT_SEASON_START,
+      seasonStart: '',
       avatarFrameOverride: storage.getSetting('avatarFrameUrl') ?? '',
       player: null,
       session: null,
@@ -139,6 +145,7 @@ export class Tracker extends EventEmitter {
       error: null,
       updatedAt: null,
     };
+    this.state.seasonStart = this.seasonStartNow();
   }
 
   start() {
@@ -166,6 +173,7 @@ export class Tracker extends EventEmitter {
   async setSeasonStart(start: string) {
     this.state.seasonStart = start;
     this.storage.setSetting('seasonStart', start);
+    this.storage.setSetting('seasonStartSetAt', new Date().toISOString().slice(0, 10));
     this.state.season = null;
     await this.poll();
   }
@@ -502,7 +510,18 @@ export class Tracker extends EventEmitter {
   /** Die Match-Historie wird nur neu geladen, wenn seit der letzten Berechnung ein Match dazukam (auch eins ohne Elo). */
   private seasonMatchesAt = '';
 
+  /**
+   * Das eigene Datum aus dem Editor gilt, bis danach eine neue Season beginnt; sonst automatisch der Start der aktuellen Season.
+   * Ein Datum ohne seasonStartSetAt stammt nicht aus dem Editor (alte automatische Erkennung) und zählt nicht.
+   */
+  private seasonStartNow(): string {
+    const auto = latestSeasonStart();
+    const setAt = this.storage.getSetting('seasonStartSetAt');
+    return setAt && setAt >= auto ? (this.storage.getSetting('seasonStart') ?? auto) : auto;
+  }
+
   private async updateSeason(player: PlayerSnapshot) {
+    this.state.seasonStart = this.seasonStartNow();
     const start = this.state.seasonStart;
     if (!start) {
       this.state.season = null;
