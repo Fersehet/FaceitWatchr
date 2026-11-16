@@ -1,14 +1,19 @@
 import { EventEmitter } from 'node:events';
+import { readFileSync } from 'node:fs';
 import { LEVEL_THRESHOLDS, type MatchResult, type PlayerSnapshot, type RecentMatch, type StatsSource } from './faceit/types.ts';
 import type { Storage } from './storage/storage.ts';
 
-/** Startdaten der FACEIT-Seasons (Season 9, Season 10). Die Data API kennt sie nicht, neue Seasons hier ergänzen. */
-const SEASON_STARTS = ['2026-08-05', '2026-12-09'];
+/**
+ * Startdaten der FACEIT-Seasons. Die Data API kennt sie nicht, daher stehen sie in seasons.json.
+ * Der Server holt die Datei täglich aus dem GitHub-Repo, so reicht für eine neue Season ein Eintrag dort.
+ */
+let seasonStarts: string[] = JSON.parse(readFileSync(new URL('../seasons.json', import.meta.url), 'utf8'));
+const SEASONS_URL = 'https://raw.githubusercontent.com/Fersehet/FaceitWatchr/main/seasons.json';
 
 /** Start der zuletzt begonnenen Season */
 function latestSeasonStart(): string {
   const today = new Date().toISOString().slice(0, 10);
-  return SEASON_STARTS.filter((d) => d <= today).at(-1) ?? SEASON_STARTS[0];
+  return seasonStarts.filter((d) => d <= today).sort().at(-1) ?? '';
 }
 
 export interface Session {
@@ -510,6 +515,19 @@ export class Tracker extends EventEmitter {
   /** Die Match-Historie wird nur neu geladen, wenn seit der letzten Berechnung ein Match dazukam (auch eins ohne Elo). */
   private seasonMatchesAt = '';
 
+  /** Die Season-Liste auf GitHub wird höchstens einmal am Tag geholt; ohne Verbindung bleibt die eingebaute. */
+  private seasonsCheckedAt = 0;
+
+  private async refreshSeasonStarts() {
+    if (Date.now() - this.seasonsCheckedAt < 24 * 60 * 60 * 1000) return;
+    this.seasonsCheckedAt = Date.now();
+    try {
+      const res = await fetch(SEASONS_URL, { signal: AbortSignal.timeout(5000) });
+      const list: unknown = res.ok ? await res.json() : null;
+      if (Array.isArray(list)) seasonStarts = [...new Set([...seasonStarts, ...list.filter((d) => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d))])];
+    } catch {}
+  }
+
   /**
    * Das eigene Datum aus dem Editor gilt, bis danach eine neue Season beginnt; sonst automatisch der Start der aktuellen Season.
    * Ein Datum ohne seasonStartSetAt stammt nicht aus dem Editor (alte automatische Erkennung) und zählt nicht.
@@ -521,6 +539,7 @@ export class Tracker extends EventEmitter {
   }
 
   private async updateSeason(player: PlayerSnapshot) {
+    await this.refreshSeasonStarts();
     this.state.seasonStart = this.seasonStartNow();
     const start = this.state.seasonStart;
     if (!start) {
