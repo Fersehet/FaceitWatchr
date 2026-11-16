@@ -1,20 +1,9 @@
 import { EventEmitter } from 'node:events';
-import { readFileSync } from 'node:fs';
 import { LEVEL_THRESHOLDS, type MatchResult, type PlayerSnapshot, type RecentMatch, type StatsSource } from './faceit/types.ts';
 import type { Storage } from './storage/storage.ts';
 
-/**
- * Startdaten der FACEIT-Seasons. Die Data API kennt sie nicht, daher stehen sie in seasons.json.
- * Der Server holt die Datei täglich aus dem GitHub-Repo, so reicht für eine neue Season ein Eintrag dort.
- */
-let seasonStarts: string[] = JSON.parse(readFileSync(new URL('../seasons.json', import.meta.url), 'utf8'));
-const SEASONS_URL = 'https://raw.githubusercontent.com/Fersehet/FaceitWatchr/main/seasons.json';
-
-/** Start der zuletzt begonnenen Season */
-function latestSeasonStart(): string {
-  const today = new Date().toISOString().slice(0, 10);
-  return seasonStarts.filter((d) => d <= today).sort().at(-1) ?? '';
-}
+/** Beginn der aktuellen FACEIT-Season (Season 9), solange im Editor kein eigenes Datum gesetzt ist. */
+const DEFAULT_SEASON_START = '2026-08-05';
 
 export interface Session {
   /** Gehört die Session zu einem anderen Spieler (z. B. Demo → echter Account), wird neu gestartet. */
@@ -109,6 +98,8 @@ export interface LiveState {
   player: PlayerSnapshot | null;
   session: SessionStats | null;
   season: SeasonStats | null;
+  /** Kalibrierung nach einem Elo-Reset (die ersten 10 Matchmaking-Matches, Elo bei Faceit versteckt): Bilanz nur dieser Matches, sonst null */
+  calibration: { wins: number; losses: number } | null;
   /** Die letzten Matches mit Elo-Änderung, neuestes zuerst */
   recentMatches: RecentMatch[];
   error: string | null;
@@ -141,16 +132,16 @@ export class Tracker extends EventEmitter {
     this.state = {
       demo: source.demo,
       nickname: storage.getSetting('nickname') ?? defaultNickname,
-      seasonStart: '',
+      seasonStart: storage.getSetting('seasonStart') ?? DEFAULT_SEASON_START,
       avatarFrameOverride: storage.getSetting('avatarFrameUrl') ?? '',
       player: null,
       session: null,
       season: null,
+      calibration: null,
       recentMatches: [],
       error: null,
       updatedAt: null,
     };
-    this.state.seasonStart = this.seasonStartNow();
   }
 
   start() {
@@ -178,7 +169,6 @@ export class Tracker extends EventEmitter {
   async setSeasonStart(start: string) {
     this.state.seasonStart = start;
     this.storage.setSetting('seasonStart', start);
-    this.storage.setSetting('seasonStartSetAt', new Date().toISOString().slice(0, 10));
     this.state.season = null;
     await this.poll();
   }
@@ -218,12 +208,14 @@ export class Tracker extends EventEmitter {
       const player = await this.source.fetchPlayer(this.state.nickname);
       player.avatarFrame = await this.avatarFrame(player.playerId);
       const previous = this.storage.latestSnapshot(player.playerId);
+      this.detectSeasonReset(previous, player);
       this.storage.saveSnapshot(player);
       await this.recordNewMatches(previous, player);
       this.state.recentMatches = await this.recentMatches(player);
       this.state.player = player;
       this.state.session = this.sessionStats(player);
       await this.updateSeason(player);
+      this.state.calibration = this.calibration(player.playerId);
       this.state.error = null;
     } catch (err) {
       this.state.error = err instanceof Error ? err.message : String(err);
@@ -515,32 +507,33 @@ export class Tracker extends EventEmitter {
   /** Die Match-Historie wird nur neu geladen, wenn seit der letzten Berechnung ein Match dazukam (auch eins ohne Elo). */
   private seasonMatchesAt = '';
 
-  /** Die Season-Liste auf GitHub wird höchstens einmal am Tag geholt; ohne Verbindung bleibt die eingebaute. */
-  private seasonsCheckedAt = 0;
-
-  private async refreshSeasonStarts() {
-    if (Date.now() - this.seasonsCheckedAt < 24 * 60 * 60 * 1000) return;
-    this.seasonsCheckedAt = Date.now();
-    try {
-      const res = await fetch(SEASONS_URL, { signal: AbortSignal.timeout(5000) });
-      const list: unknown = res.ok ? await res.json() : null;
-      if (Array.isArray(list)) seasonStarts = [...new Set([...seasonStarts, ...list.filter((d) => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d))])];
-    } catch {}
+  /**
+   * Neue Season = Faceit setzt die Elo zurück. Erkannt, wenn sich die Elo ohne neues Match ändert (mindestens 50, kleinere
+   * Änderungen sind z. B. Elo-Rückgaben nach einem Cheater-Bann) oder Faceit sie zur Kalibrierung versteckt (0).
+   * Dann wird der Season-Start auf heute gesetzt; sonst bleibt das Datum, auch ein eigenes aus dem Editor.
+   */
+  private detectSeasonReset(previous: PlayerSnapshot | null, player: PlayerSnapshot) {
+    if (!previous || previous.playerId !== player.playerId || !previous.elo) return;
+    const hidden = player.elo === 0;
+    const jump = player.matches === previous.matches && Math.abs(player.elo - previous.elo) >= 50;
+    if (!hidden && !jump) return;
+    const today = new Date().toISOString().slice(0, 10);
+    this.state.seasonStart = today;
+    this.storage.setSetting('seasonStart', today);
+    this.storage.setSetting('seasonResetAt', today);
   }
 
-  /**
-   * Das eigene Datum aus dem Editor gilt, bis danach eine neue Season beginnt; sonst automatisch der Start der aktuellen Season.
-   * Ein Datum ohne seasonStartSetAt stammt nicht aus dem Editor (alte automatische Erkennung) und zählt nicht.
-   */
-  private seasonStartNow(): string {
-    const auto = latestSeasonStart();
-    const setAt = this.storage.getSetting('seasonStartSetAt');
-    return setAt && setAt >= auto ? (this.storage.getSetting('seasonStart') ?? auto) : auto;
+  /** Nach einem erkannten Elo-Reset zählen die ersten 10 Matchmaking-Matches (ohne Spiele ohne Elo) zur Kalibrierung. */
+  private calibration(playerId: string): LiveState['calibration'] {
+    const start = this.state.seasonStart;
+    if (!start || start !== this.storage.getSetting('seasonResetAt')) return null;
+    const ranked = this.sessionMatches(playerId, new Date(start).toISOString(), 5000).filter(isRanked);
+    if (ranked.length >= 10) return null;
+    const wins = ranked.filter((m) => m.result === 'W').length;
+    return { wins, losses: ranked.length - wins };
   }
 
   private async updateSeason(player: PlayerSnapshot) {
-    await this.refreshSeasonStarts();
-    this.state.seasonStart = this.seasonStartNow();
     const start = this.state.seasonStart;
     if (!start) {
       this.state.season = null;

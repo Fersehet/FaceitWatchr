@@ -161,8 +161,15 @@ function widgetContent(widget, style, state, period = 'alltime') {
       if (!p) return null;
       return levelBadge(p.level, size);
     }
-    case 'elo':
-      return p ? el('div', { fontWeight: 700 }, `${p.elo} ELO`) : null;
+    case 'elo': {
+      if (!p) return null;
+      // Während der Kalibrierung zu Season-Beginn versteckt Faceit die Elo: dann die Bilanz der Matchmaking-Matches
+      const c = state?.calibration;
+      if (!c) return el('div', { fontWeight: 700 }, `${p.elo} ELO`);
+      const wrap = el('div', { fontWeight: 700 });
+      wrap.append(el('span', { color: style.positiveColor }, `${c.wins}W`), el('span', {}, '\u00a0-\u00a0'), el('span', { color: style.negativeColor }, `${c.losses}L`));
+      return wrap;
+    }
     case 'eloProgress': {
       if (!p) return null;
       const idx = Math.min(p.level, 10) - 1;
