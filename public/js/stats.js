@@ -13,12 +13,22 @@ const LEVEL_COLORS = ['#b8c1d1', '#46d3b0', '#46d3b0', '#ffd84d', '#ffd84d', '#f
 let data = null;
 /** Gespeicherte Matches für die Liste, neueste zuerst */
 let matches = null;
-const PAGE = 25;
-let shown = PAGE;
+/** Seiten der Match-Liste; Matches pro Seite merkt sich der Browser */
+const PER_PAGE = [10, 25, 50, 100];
+let perPage = (() => {
+  try { const n = Number(localStorage.getItem('fw-matches-per-page')); return PER_PAGE.includes(n) ? n : 25; } catch { return 25; }
+})();
+let page = 0;
 /** Aufgeklappte Matches und geladene Scoreboards (null = Faceit liefert keins) */
 const open = new Set();
 const boards = new Map();
 let autoOpened = false;
+/** Gewählter Tag (YYYY-MM-DD, Ortszeit) oder '' für alle */
+let day = '';
+const dayKey = (iso) => {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
 
 // l: Sprache für das Zahlenformat, Standard ist die aktuelle
 const num = (n, digits = 0, l) => n.toLocaleString(l ? localeOf(l) : locale(), { minimumFractionDigits: digits, maximumFractionDigits: digits });
@@ -47,7 +57,7 @@ export async function loadStats() {
   const [stats, list] = await Promise.all([get('/api/stats?count=20'), get('/api/matches?limit=1000')]);
   if (stats) data = stats;
   // Die Liste nur neu zeichnen, wenn sich etwas geändert hat (sonst springen Fokus und aufgeklappte Zeilen bei jedem Update)
-  const sig = (l) => (l ? `${l.length}:${l[0]?.matchId}:${l.map((m) => m.eloChange).join(',')}` : '');
+  const sig = (l) => (l ? `${l.length}:${l[0]?.matchId}:${l.map((m) => `${m.eloChange}/${m.rating}`).join(',')}` : '');
   const changed = list && sig(list) !== sig(matches);
   if (changed) matches = list;
   renderChart();
@@ -258,15 +268,30 @@ function matchRow(m) {
 
 function renderMatches() {
   const list = $('matchList');
-  const all = matches ?? [];
+  const all = (matches ?? []).filter((m) => !day || dayKey(m.finishedAt) === day);
+  // Datumsfeld nur von erstem bis letztem gespeicherten Tag
+  const input = $('matchDay');
+  if (matches?.length) {
+    input.min = dayKey(matches[matches.length - 1].finishedAt);
+    input.max = dayKey(matches[0].finishedAt);
+  }
+  input.value = day;
+  $('matchDayAll').hidden = !day;
   // Beim ersten Öffnen ist das neueste Match aufgeklappt
   if (!autoOpened && all.length) {
     open.add(all[0].matchId);
     autoOpened = true;
   }
   setText($('matchesCount'), all.length ? 'matchesCount' : '', { n: num(all.length) });
-  list.innerHTML = all.slice(0, shown).map(matchRow).join('') || `<li class="empty">${esc(t(data ? 'noMatches' : 'noPlayer'))}</li>`;
-  $('matchesMore').hidden = all.length <= shown;
+  const empty = day ? 'matchesNoDay' : data ? 'noMatches' : 'noPlayer';
+  const pages = Math.max(1, Math.ceil(all.length / perPage));
+  page = Math.min(page, pages - 1);
+  list.innerHTML = all.slice(page * perPage, (page + 1) * perPage).map(matchRow).join('') || `<li class="empty">${esc(t(empty))}</li>`;
+  $('matchPager').hidden = !all.length;
+  $('pageInfo').textContent = t('pageOf', { a: page + 1, b: pages });
+  $('pagePrev').disabled = page === 0;
+  $('pageNext').disabled = page >= pages - 1;
+  $('perPage').value = String(perPage);
   for (const li of list.querySelectorAll('li.open')) loadBoard(li);
 }
 
@@ -300,7 +325,28 @@ $('matchList').addEventListener('click', (e) => {
   } else open.delete(li.dataset.id);
 });
 
-$('matchesMore').addEventListener('click', () => {
-  shown += PAGE;
+$('matchDay').addEventListener('change', (e) => {
+  day = e.target.value;
+  page = 0;
+  renderMatches();
+});
+$('matchDayAll').addEventListener('click', () => {
+  day = '';
+  page = 0;
+  renderMatches();
+});
+
+// Blättern: danach an den Anfang der Liste, damit man nicht unten auf der neuen Seite landet
+function turn(delta) {
+  page += delta;
+  renderMatches();
+  $('matchList').scrollIntoView({ block: 'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+}
+$('pagePrev').addEventListener('click', () => turn(-1));
+$('pageNext').addEventListener('click', () => turn(1));
+$('perPage').addEventListener('change', (e) => {
+  perPage = Number(e.target.value);
+  page = 0;
+  try { localStorage.setItem('fw-matches-per-page', String(perPage)); } catch {}
   renderMatches();
 });

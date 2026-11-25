@@ -115,6 +115,9 @@ const ELO_WAIT_POLLS = 3;
 /** Schlägt das Nachschlagen der Elo bei Faceit fehl, wird es frühestens nach 5 Minuten wiederholt. */
 const ELO_RETRY_MS = 5 * 60 * 1000;
 
+/** Abstand zwischen zwei nachgeladenen Scoreboards (ein Faceit-Abruf pro Schritt) */
+const BACKFILL_MS = 4000;
+
 /** Fragt Faceit regelmäßig ab, speichert neue Stände und verteilt den Live-Zustand an alle Overlays. */
 export class Tracker extends EventEmitter {
   private timer: NodeJS.Timeout | null = null;
@@ -147,10 +150,12 @@ export class Tracker extends EventEmitter {
   start() {
     void this.poll();
     this.timer = setInterval(() => void this.poll(), this.intervalSeconds * 1000);
+    this.backfillTimer = setInterval(() => void this.backfillStep(), BACKFILL_MS);
   }
 
   stop() {
     if (this.timer) clearInterval(this.timer);
+    if (this.backfillTimer) clearInterval(this.backfillTimer);
   }
 
   async setNickname(nickname: string) {
@@ -460,10 +465,39 @@ export class Tracker extends EventEmitter {
     // Frisch lesen: während der Abfrage kann sich das Match geändert haben (z. B. Elo eingetragen)
     const fresh = this.storage.getMatch(matchId) ?? match;
     fresh.scoreboard = teams;
+    // Rating am Match selbst merken, damit die Match-Liste es auch ohne Scoreboard zeigt
+    fresh.rating = teams.flatMap((t) => t.players).find((p) => p.playerId === fresh.playerId)?.rating ?? fresh.rating ?? null;
     this.storage.saveMatch(fresh);
     return teams;
   }
   private boardMisses = new Map<string, number>();
+
+  /**
+   * Scoreboards (und damit das Rating) älterer Matches im Hintergrund nachladen: ein Match pro Schritt,
+   * damit Faceits Abruf-Limit nicht greift. Die Liste der fehlenden wird höchstens alle 10 Minuten neu ermittelt.
+   */
+  private backfillTimer: NodeJS.Timeout | null = null;
+  private backfillQueue: string[] = [];
+  private backfillCheckedAt = 0;
+  private backfilling = false;
+  private async backfillStep() {
+    const playerId = this.state.player?.playerId;
+    if (this.backfilling || !playerId || !this.source.fetchScoreboard) return;
+    if (!this.backfillQueue.length) {
+      if (Date.now() - this.backfillCheckedAt < 10 * 60_000) return;
+      this.backfillCheckedAt = Date.now();
+      this.backfillQueue = this.storage.listMatches(playerId, 1000).filter((m) => !m.scoreboard?.length).map((m) => m.matchId);
+      if (!this.backfillQueue.length) return;
+    }
+    this.backfilling = true;
+    try {
+      await this.scoreboard(this.backfillQueue.shift()!);
+    } catch {
+      // nächster Versuch beim nächsten Durchlauf
+    } finally {
+      this.backfilling = false;
+    }
+  }
 
   private eloBefore(playerId: string, finishedAt: string): number | null {
     const before = this.storage.eloHistory(playerId).filter((h) => h.takenAt < finishedAt);
