@@ -142,10 +142,11 @@ app.put('/api/avatar-frame', async (req, res) => {
 });
 
 app.get('/api/state', (_req, res) => res.json(tracker.state));
-// Gespeicherte Matches, neueste zuerst
+// Gespeicherte Matches, neueste zuerst. Ohne Scoreboards (die holt der Editor einzeln beim Aufklappen);
+// ohne Login höchstens 100, angemeldet bis 1000 für die Match-Liste im Statistik-Tab
 app.get('/api/matches', (req, res) => {
-  const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 20));
-  res.json(storage.listMatches(tracker.state.player?.playerId ?? null, limit));
+  const limit = Math.min(auth.user(req) ? 1000 : 100, Math.max(1, Number(req.query.limit) || 20));
+  res.json(storage.listMatches(tracker.state.player?.playerId ?? null, limit).map(({ scoreboard: _, ...m }) => m));
 });
 
 // Auswertung für den Statistik-Tab (Elo-Verlauf, Session), nur aus gespeicherten Daten
@@ -190,6 +191,13 @@ app.put('/api/matches/:id/elo', async (req, res) => {
   } catch (err) {
     res.status(404).json({ error: err instanceof Error ? err.message : String(err) });
   }
+});
+
+// Scoreboard eines Matches für den Statistik-Tab; ältere Matches lädt der Server einmal bei Faceit nach
+app.get('/api/matches/:id/scoreboard', async (req, res) => {
+  const teams = await tracker.scoreboard(req.params.id);
+  if (!teams) return void res.status(404).json({ error: 'Kein Scoreboard' });
+  res.json(teams);
 });
 
 app.get('/api/history', (req, res) => {

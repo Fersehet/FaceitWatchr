@@ -59,6 +59,34 @@ export interface MatchResult {
   eloEstimated?: boolean;
   level: number;
   url: string;
+  /** HLTV-Rating 1.0 des Spielers in diesem Match (siehe rating1). Fehlt bei älteren Matches */
+  rating?: number | null;
+  /** Beide Teams mit allen Spielern, eigenes Team zuerst. Fehlt bei älteren Matches, wird beim ersten Aufklappen nachgeladen */
+  scoreboard?: ScoreboardTeam[];
+}
+
+/** Ein Spieler im Scoreboard eines Matches. */
+export interface ScoreboardPlayer {
+  playerId: string;
+  nickname: string;
+  kills: number;
+  deaths: number;
+  assists: number;
+  kd: number;
+  adr: number | null;
+  hsPercent: number;
+  mvps: number | null;
+  /** HLTV-Rating 1.0, aus Kills, Toden, Runden und Multikills berechnet; null = Runden unbekannt */
+  rating: number | null;
+}
+
+/** Ein Team im Scoreboard, Spieler nach Kills sortiert. */
+export interface ScoreboardTeam {
+  name: string;
+  /** Gewonnene Runden, null = unbekannt */
+  score: number | null;
+  won: boolean;
+  players: ScoreboardPlayer[];
 }
 
 /** Eintrag im Widget "Letzte Matches": Ergebnis und Elo-Änderung (null = unbekannt). */
@@ -99,6 +127,23 @@ export interface StatsSource {
   fetchEloHistory?(playerId: string, count: number): Promise<EloAfterMatch[]>;
   /** Ob der Spieler im Match die meisten Kills hatte; null = nicht ermittelbar. Für ältere gespeicherte Matches. */
   fetchMatchMvp?(matchId: string, playerId: string): Promise<boolean | null>;
+  /** Scoreboard eines Matches (eigenes Team zuerst); null = nicht ermittelbar. Für ältere gespeicherte Matches. */
+  fetchScoreboard?(matchId: string, playerId: string): Promise<ScoreboardTeam[] | null>;
+}
+
+/**
+ * HLTV-Rating 1.0 (offene Formel von HLTV): Kills pro Runde, Überleben und Runden mit mehreren Kills,
+ * jeweils am Durchschnitt gemessen; 1,00 = Durchschnitt. Faceit zeigt kein Rating, die Zutaten stecken
+ * aber in den Match-Stats. multi = Runden mit 2, 3, 4 und 5 Kills.
+ */
+export function rating1(kills: number, deaths: number, rounds: number | null, multi: [number, number, number, number]): number | null {
+  if (!rounds || rounds <= 0) return null;
+  const [k2, k3, k4, k5] = multi;
+  const k1 = Math.max(0, kills - 2 * k2 - 3 * k3 - 4 * k4 - 5 * k5);
+  const killRating = kills / rounds / 0.679;
+  const survivalRating = (rounds - deaths) / rounds / 0.317;
+  const multiRating = (k1 + 4 * k2 + 9 * k3 + 16 * k4 + 25 * k5) / rounds / 1.277;
+  return Math.round(((killRating + 0.7 * survivalRating + multiRating) / 2.7) * 100) / 100;
 }
 
 /** Faceit CS2 Level-Grenzen (Mindest-Elo pro Level). */

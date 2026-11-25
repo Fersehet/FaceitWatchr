@@ -25,6 +25,7 @@ export interface Storage {
   saveMatch(match: MatchResult): void;
   /** Neueste zuerst */
   listMatches(playerId: string | null, limit: number): MatchResult[];
+  getMatch(matchId: string): MatchResult | null;
 
   listOverlays(ownerId: string): Overlay[];
   getOverlay(id: string): Overlay | null;
