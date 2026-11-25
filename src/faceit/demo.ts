@@ -1,4 +1,4 @@
-import { levelForElo, type MatchDetails, type MatchRecord, type PlayerSnapshot, type ScoreboardPlayer, type ScoreboardTeam, type StatsSource } from './types.ts';
+import { levelForElo, rating1, type MatchDetails, type MatchRecord, type PlayerSnapshot, type ScoreboardPlayer, type ScoreboardTeam, type StatsSource } from './types.ts';
 
 /**
  * Liefert erfundene Daten, solange kein API-Key eingetragen ist.
@@ -104,6 +104,7 @@ export class DemoSource implements StatsSource {
     // Im Scoreboard dieselben Werte wie im Match selbst
     Object.assign(m.scoreboard[0].players.find((p) => p.playerId === m.playerId)!, { kd: m.kd, adr: m.adr, hsPercent: m.hsPercent, mvps: m.mvps });
     m.matchMvp = m.scoreboard.every((t) => t.players.every((p) => p.kills <= m.kills));
+    m.rating = m.scoreboard[0].players.find((p) => p.playerId === m.playerId)!.rating;
     this.played = this.played.slice(0, 20);
   }
 }
@@ -115,15 +116,21 @@ function demoScoreboard(matchId: string, playerId: string, nickname: string, kil
   let seed = [...matchId].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7);
   const rnd = () => ((seed = (seed * 1103515245 + 12345) >>> 0) / 2 ** 32);
   const names = [...DEMO_NAMES].sort(() => rnd() - 0.5);
-  const player = (id: string, name: string, k: number, d: number, a: number): ScoreboardPlayer => ({
+  const player = (id: string, name: string, k: number, d: number, a: number): ScoreboardPlayer => {
+    // Runden mit mehreren Kills, passend zur Kill-Zahl
+    const k2 = Math.floor((k / 6) * rnd()), k3 = Math.floor((k / 14) * rnd()), k4 = rnd() < 0.08 ? 1 : 0;
+    return {
     playerId: id, nickname: name, kills: k, deaths: d, assists: a,
     kd: Math.round((k / Math.max(1, d)) * 100) / 100,
     adr: Math.round((45 + k * 3.2 + rnd() * 14) * 10) / 10,
     hsPercent: 25 + Math.floor(rnd() * 40),
     mvps: Math.floor(rnd() * 5),
-  });
+    rating: rating1(k, d, rounds, [k2, k3, k4, 0]),
+    };
+  };
   const mate = (i: number, strong: boolean) => player(`demo-${i}`, names[i], 8 + Math.floor(rnd() * (strong ? 18 : 14)), 10 + Math.floor(rnd() * 12), Math.floor(rnd() * 8));
   const [ownScore, otherScore] = score.split('/').map((p) => Number.parseInt(p.trim(), 10));
+  const rounds = (ownScore || 0) + (otherScore || 0) || null;
   const sort = (ps: ScoreboardPlayer[]) => ps.sort((a, b) => b.kills - a.kills || b.kd - a.kd);
   return [
     { name: `team_${nickname}`, score: Number.isNaN(ownScore) ? null : ownScore, won, players: sort([{ ...player(playerId, nickname, kills, deaths, assists) }, ...[0, 1, 2, 3].map((i) => mate(i, won))]) },

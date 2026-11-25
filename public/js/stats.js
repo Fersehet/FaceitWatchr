@@ -183,6 +183,14 @@ function renderLevels() {
 
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 const teamName = (name) => String(name).replace(/^team_/, '');
+// HLTV-Rating 1.0: grün ab 1,10, rot unter 0,90
+const ratingClass = (r) => (r == null ? '' : r >= 1.1 ? 'up' : r < 0.9 ? 'down' : '');
+/** Eigenes Rating: gespeichert oder aus dem Scoreboard */
+function ownRating(m) {
+  if (m.rating != null) return m.rating;
+  const teams = boards.has(m.matchId) ? boards.get(m.matchId) : m.scoreboard;
+  return teams?.flatMap((t) => t.players).find((p) => p.playerId === m.playerId)?.rating ?? null;
+}
 
 function eloCell(m) {
   if (m.ranked === false) return `<span class="elo flat">${esc(t('noElo'))}</span>`;
@@ -199,6 +207,8 @@ function matchStats(m) {
     ['mKills', num(m.kills)], ['mDeaths', num(m.deaths)], ['mAssists', num(m.assists)], ['mKd', num(m.kd, 2)],
     ['mAdr', m.adr != null ? num(m.adr, 1) : '–'], ['mHs', `${num(m.hsPercent)} %`], ['mMvps', m.mvps != null ? num(m.mvps) : '–'],
   ].map(([k, v]) => `<div><dt>${esc(t(k))}</dt><dd>${esc(v)}</dd></div>`);
+  const r = ownRating(m);
+  cells.push(`<div title="${esc(t('mRatingTip'))}"><dt>${esc(t('mRating'))}</dt><dd class="${ratingClass(r)}">${r != null ? esc(num(r, 2)) : '–'}</dd></div>`);
   cells.push(`<div><dt>${esc(t('mElo'))}</dt><dd>${elo}</dd></div>`);
   return `<dl class="match-stats">${cells.join('')}</dl>`;
 }
@@ -207,7 +217,7 @@ function boardHtml(m, teams) {
   if (teams === undefined) return `<p class="example">${esc(t('aLoading'))}</p>`;
   if (!teams?.length) return `<p class="example">${esc(t('mNoBoard'))}</p>`;
   const top = Math.max(...teams.flatMap((team) => team.players.map((p) => p.kills)));
-  const head = ['mPlayer', 'mK', 'mD', 'mA', 'mKd', 'mAdr', 'mHs'].map((k) => `<th scope="col">${esc(t(k))}</th>`).join('');
+  const head = ['mPlayer', 'mK', 'mD', 'mA', 'mKd', 'mAdr', 'mHs', 'mRating'].map((k) => `<th scope="col"${k === 'mRating' ? ` title="${esc(t('mRatingTip'))}"` : ''}>${esc(t(k))}</th>`).join('');
   return `<div class="board">${teams.map((team) => `
     <div class="team">
     <div class="team-head${team.won ? ' won' : ''}"><span>${esc(teamName(team.name))}</span><b>${team.score ?? ''}</b></div>
@@ -216,14 +226,16 @@ function boardHtml(m, teams) {
       <tbody>${team.players.map((p) => `<tr class="${p.playerId === m.playerId ? 'me' : ''}">
         <td>${esc(p.nickname)}${p.kills === top ? `<span class="mvp" title="${esc(t('mTop'))}">★</span>` : ''}</td>
         <td>${p.kills}</td><td>${p.deaths}</td><td>${p.assists}</td><td>${esc(num(p.kd, 2))}</td>
-        <td>${p.adr != null ? esc(num(p.adr, 1)) : '–'}</td><td>${p.hsPercent}</td></tr>`).join('')}</tbody>
+        <td>${p.adr != null ? esc(num(p.adr, 1)) : '–'}</td><td>${p.hsPercent}</td>
+        <td class="rt ${ratingClass(p.rating)}">${p.rating != null ? esc(num(p.rating, 2)) : '–'}</td></tr>`).join('')}</tbody>
     </table></div>`).join('')}</div>`;
 }
 
 function matchRow(m) {
   const isOpen = open.has(m.matchId);
   const at = new Date(m.finishedAt);
-  const sub = [`K/D ${num(m.kd, 2)}`, m.adr != null ? `ADR ${num(m.adr, 1)}` : '', m.matchMvp ? `★ ${t('mTop')}` : ''].filter(Boolean).join(' · ');
+  const r = ownRating(m);
+  const sub = [r != null ? `${t('mRating')} ${num(r, 2)}` : '', `K/D ${num(m.kd, 2)}`, m.adr != null ? `ADR ${num(m.adr, 1)}` : '', m.matchMvp ? `★ ${t('mTop')}` : ''].filter(Boolean).join(' · ');
   const detail = `<div class="sub">${esc(t('mStats'))}</div>${matchStats(m)}
     ${m.url ? `<a class="match-link" href="${esc(m.url)}" target="_blank" rel="noopener">${esc(t('mOpen'))} ↗</a>` : ''}
     <div class="sub">${esc(t('mScoreboard'))}</div><div class="board-slot">${boardHtml(m, boards.has(m.matchId) ? boards.get(m.matchId) : m.scoreboard)}</div>`;
@@ -264,8 +276,9 @@ async function loadBoard(li) {
     if (res.ok) teams = await res.json();
   } catch {}
   boards.set(id, teams);
-  const slot = $('matchList').querySelector(`li[data-id="${CSS.escape(id)}"] .board-slot`);
-  if (slot) slot.innerHTML = boardHtml(m, teams);
+  // Ganze Zeile neu: Rating in Kopf und Stats kommt bei älteren Matches erst mit dem Scoreboard
+  const row = $('matchList').querySelector(`li[data-id="${CSS.escape(id)}"]`);
+  if (row) row.outerHTML = matchRow(m);
 }
 
 $('matchList').addEventListener('click', (e) => {

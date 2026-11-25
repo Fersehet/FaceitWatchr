@@ -7,6 +7,8 @@ export const LANGS = ['de', 'en', 'ru', 'fr'];
 
 const T = {
   de: {
+    mRating: 'Rating',
+    mRatingTip: 'HLTV-Rating 1.0, berechnet aus Kills, Toden, Runden und Multikills. 1,00 = Durchschnitt',
     matchesHead: 'Gespeicherte Matches',
     matchesHint: 'Match anklicken für seine Stats und das Scoreboard.',
     matchesMore: 'Mehr zeigen',
@@ -136,6 +138,8 @@ const T = {
     errLastOverlay: 'Das letzte Overlay kann nicht gelöscht werden',
   },
   en: {
+    mRating: 'Rating',
+    mRatingTip: 'HLTV Rating 1.0, calculated from kills, deaths, rounds and multi-kills. 1.00 = average',
     matchesHead: 'Saved matches',
     matchesHint: 'Click a match for its stats and the scoreboard.',
     matchesMore: 'Show more',
@@ -265,6 +269,8 @@ const T = {
     errLastOverlay: 'The last overlay cannot be deleted',
   },
   ru: {
+    mRating: 'Рейтинг',
+    mRatingTip: 'HLTV Rating 1.0, рассчитан по убийствам, смертям, раундам и мультикиллам. 1,00 = средний',
     matchesHead: 'Сохранённые матчи',
     matchesHint: 'Нажми на матч, чтобы увидеть статистику и таблицу игроков.',
     matchesMore: 'Показать ещё',
@@ -394,6 +400,8 @@ const T = {
     errLastOverlay: 'Последний оверлей нельзя удалить',
   },
   fr: {
+    mRating: 'Rating',
+    mRatingTip: 'HLTV Rating 1.0, calculé à partir des kills, morts, rounds et multi-kills. 1,00 = moyenne',
     matchesHead: 'Matchs enregistrés',
     matchesHint: 'Clique sur un match pour voir ses stats et le tableau des scores.',
     matchesMore: 'Afficher plus',
