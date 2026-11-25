@@ -1,4 +1,4 @@
-import { levelForElo, type MatchDetails, type MatchRecord, type PlayerSnapshot, type StatsSource } from './types.ts';
+import { levelForElo, type MatchDetails, type MatchRecord, type PlayerSnapshot, type ScoreboardPlayer, type ScoreboardTeam, type StatsSource } from './types.ts';
 
 /**
  * Liefert erfundene Daten, solange kein API-Key eingetragen ist.
@@ -53,6 +53,11 @@ export class DemoSource implements StatsSource {
     return '';
   }
 
+  async fetchScoreboard(matchId: string, playerId: string): Promise<ScoreboardTeam[] | null> {
+    const own = this.played.find((m) => m.matchId === matchId);
+    return own?.scoreboard ?? demoScoreboard(matchId, playerId, 'DemoPlayer', 18, 16, 4, true, '13 / 9');
+  }
+
   private playMatch() {
     const won = Math.random() < 0.55;
     // Hubs, Turniere und Ligen zählen in allen Stats mit, bringen aber keine Elo
@@ -94,6 +99,34 @@ export class DemoSource implements StatsSource {
       ranked,
       url: `https://www.faceit.com/de/cs2/room/${id}`,
     });
+    const m = this.played[0];
+    m.scoreboard = demoScoreboard(id, m.playerId, m.nickname, m.kills, m.deaths, m.assists, won, m.score);
+    // Im Scoreboard dieselben Werte wie im Match selbst
+    Object.assign(m.scoreboard[0].players.find((p) => p.playerId === m.playerId)!, { kd: m.kd, adr: m.adr, hsPercent: m.hsPercent, mvps: m.mvps });
+    m.matchMvp = m.scoreboard.every((t) => t.players.every((p) => p.kills <= m.kills));
     this.played = this.played.slice(0, 20);
   }
+}
+
+const DEMO_NAMES = ['rotflare', 'kxzu', 'Mivo', 'b4stl', 'nordlicht', 'Tarik_ow', 'sp1ce', 'Quillo', 'h0rizon', 'wendlr', 'zeppo', 'Ilyx', 'frostbyte', 'Kaval'];
+
+/** Erfundenes, aber stimmiges Scoreboard: der Spieler mit seinen Werten im eigenen Team, 4 Mitspieler, 5 Gegner. */
+function demoScoreboard(matchId: string, playerId: string, nickname: string, kills: number, deaths: number, assists: number, won: boolean, score: string): ScoreboardTeam[] {
+  let seed = [...matchId].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7);
+  const rnd = () => ((seed = (seed * 1103515245 + 12345) >>> 0) / 2 ** 32);
+  const names = [...DEMO_NAMES].sort(() => rnd() - 0.5);
+  const player = (id: string, name: string, k: number, d: number, a: number): ScoreboardPlayer => ({
+    playerId: id, nickname: name, kills: k, deaths: d, assists: a,
+    kd: Math.round((k / Math.max(1, d)) * 100) / 100,
+    adr: Math.round((45 + k * 3.2 + rnd() * 14) * 10) / 10,
+    hsPercent: 25 + Math.floor(rnd() * 40),
+    mvps: Math.floor(rnd() * 5),
+  });
+  const mate = (i: number, strong: boolean) => player(`demo-${i}`, names[i], 8 + Math.floor(rnd() * (strong ? 18 : 14)), 10 + Math.floor(rnd() * 12), Math.floor(rnd() * 8));
+  const [ownScore, otherScore] = score.split('/').map((p) => Number.parseInt(p.trim(), 10));
+  const sort = (ps: ScoreboardPlayer[]) => ps.sort((a, b) => b.kills - a.kills || b.kd - a.kd);
+  return [
+    { name: `team_${nickname}`, score: Number.isNaN(ownScore) ? null : ownScore, won, players: sort([{ ...player(playerId, nickname, kills, deaths, assists) }, ...[0, 1, 2, 3].map((i) => mate(i, won))]) },
+    { name: `team_${names[4]}`, score: Number.isNaN(otherScore) ? null : otherScore, won: !won, players: sort([4, 5, 6, 7, 8].map((i) => mate(i, !won))) },
+  ];
 }

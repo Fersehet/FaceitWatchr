@@ -1,4 +1,4 @@
-import type { EloAfterMatch, MatchDetails, MatchRecord, PlayerSnapshot, StatsSource } from './types.ts';
+import type { EloAfterMatch, MatchDetails, MatchRecord, PlayerSnapshot, ScoreboardTeam, StatsSource } from './types.ts';
 
 const BASE_URL = 'https://open.faceit.com/data/v4';
 const GAME = 'cs2';
@@ -163,6 +163,7 @@ export class FaceitClient implements StatsSource {
         matchMvp: isTopFragger(players, playerId),
         ranked: isRanked(m),
         url: String(m.faceit_url ?? '').replace('{lang}', 'de'),
+        scoreboard: scoreboardOf(round, playerId),
       });
     }
     return results;
@@ -172,6 +173,12 @@ export class FaceitClient implements StatsSource {
     const stats = await this.get<any>(`/matches/${matchId}/stats`);
     const players = (stats.rounds?.[0]?.teams ?? []).flatMap((t: any) => t.players ?? []);
     return players.some((p: any) => p.player_id === playerId) ? isTopFragger(players, playerId) : null;
+  }
+
+  async fetchScoreboard(matchId: string, playerId: string): Promise<ScoreboardTeam[] | null> {
+    const stats = await this.get<any>(`/matches/${matchId}/stats`);
+    const round = stats.rounds?.[0];
+    return round ? scoreboardOf(round, playerId) : null;
   }
 
   /**
@@ -241,6 +248,34 @@ export function pickFrameUrl(value: unknown): string {
   const score = ({ key }: { key: string }) =>
     (key.includes('large') ? 2 : 0) + (!key.includes('animated') || /non_?animated|static/.test(key) ? 1 : 0);
   return found.sort((a, b) => score(b) - score(a))[0]?.url ?? '';
+}
+
+/** Beide Teams mit allen Spielern aus /matches/{id}/stats, das Team des Spielers zuerst, Spieler nach Kills. */
+function scoreboardOf(round: any, playerId: string): ScoreboardTeam[] {
+  const teams: ScoreboardTeam[] = (round?.teams ?? []).map((t: any) => ({
+    name: String(t.team_stats?.Team ?? t.team_id ?? ''),
+    score: num(t.team_stats?.['Final Score']),
+    won: String(t.team_stats?.['Team Win']) === '1',
+    players: (t.players ?? [])
+      .map((p: any) => {
+        const s = p.player_stats ?? {};
+        return {
+          playerId: String(p.player_id ?? ''),
+          nickname: String(p.nickname ?? ''),
+          kills: num(s['Kills']) ?? 0,
+          deaths: num(s['Deaths']) ?? 0,
+          assists: num(s['Assists']) ?? 0,
+          kd: num(s['K/D Ratio']) ?? 0,
+          adr: num(s['ADR']),
+          hsPercent: num(s['Headshots %']) ?? 0,
+          mvps: num(s['MVPs']),
+        };
+      })
+      .sort((a: any, b: any) => b.kills - a.kills || b.kd - a.kd),
+  }));
+  const own = teams.findIndex((t) => t.players.some((p) => p.playerId === playerId));
+  if (own > 0) teams.unshift(...teams.splice(own, 1));
+  return teams;
 }
 
 /** Match-MVP: meiste Kills aller Spieler im Match, Gleichstand zählt mit. */

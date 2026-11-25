@@ -94,6 +94,11 @@ export class SqliteStorage implements Storage {
     return rows.map((r) => JSON.parse(r.data) as MatchResult);
   }
 
+  getMatch(matchId: string): MatchResult | null {
+    const row = this.db.prepare('SELECT data FROM matches WHERE match_id = ?').get(matchId) as { data: string } | undefined;
+    return row ? (JSON.parse(row.data) as MatchResult) : null;
+  }
+
   listOverlays(ownerId: string): Overlay[] {
     const rows = this.db
       .prepare('SELECT data FROM overlays WHERE owner_id = ? ORDER BY name')

@@ -11,6 +11,14 @@ const LEVELS = [0, 501, 751, 901, 1051, 1201, 1351, 1531, 1751, 2001];
 const LEVEL_COLORS = ['#b8c1d1', '#46d3b0', '#46d3b0', '#ffd84d', '#ffd84d', '#ffd84d', '#ffd84d', '#ff9a3d', '#ff9a3d', '#ff6b6b'];
 
 let data = null;
+/** Gespeicherte Matches für die Liste, neueste zuerst */
+let matches = null;
+const PAGE = 25;
+let shown = PAGE;
+/** Aufgeklappte Matches und geladene Scoreboards (null = Faceit liefert keins) */
+const open = new Set();
+const boards = new Map();
+let autoOpened = false;
 
 // l: Sprache für das Zahlenformat, Standard ist die aktuelle
 const num = (n, digits = 0, l) => n.toLocaleString(l ? localeOf(l) : locale(), { minimumFractionDigits: digits, maximumFractionDigits: digits });
@@ -35,10 +43,10 @@ function setValue(id, text, cls = '') {
 }
 
 export async function loadStats() {
-  try {
-    const res = await fetch('/api/stats?count=20', { cache: 'no-store' });
-    if (res.ok) data = await res.json();
-  } catch {}
+  const get = (url) => fetch(url, { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+  const [stats, list] = await Promise.all([get('/api/stats?count=20'), get('/api/matches?limit=1000')]);
+  if (stats) data = stats;
+  if (list) matches = list;
   renderStats();
 }
 
@@ -46,6 +54,7 @@ export function renderStats() {
   renderChart();
   renderSeason();
   renderLevels();
+  renderMatches();
 }
 
 function renderChart() {
@@ -169,3 +178,110 @@ function renderLevels() {
     }),
   );
 }
+
+// ---- Gespeicherte Matches: aufklappbar mit Stats und Scoreboard (wie die Raids im WowWatchr) ----
+
+const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+const teamName = (name) => String(name).replace(/^team_/, '');
+
+function eloCell(m) {
+  if (m.ranked === false) return `<span class="elo flat">${esc(t('noElo'))}</span>`;
+  if (m.eloChange == null) return '<span class="elo flat">–</span>';
+  const title = m.eloEstimated ? ` title="${esc(t('estimated'))}"` : '';
+  return `<span class="elo ${trendClass(m.eloChange)}"${title}>${m.eloEstimated ? '~' : ''}${esc(signed(m.eloChange))}</span>`;
+}
+
+function matchStats(m) {
+  const elo = m.ranked === false ? esc(t('noElo'))
+    : m.eloAfter != null ? `${esc(num(m.eloAfter))}${m.eloChange != null ? ` <small>${esc(signed(m.eloChange))}</small>` : ''}`
+    : m.eloChange != null ? esc(signed(m.eloChange)) : '–';
+  const cells = [
+    ['mKills', num(m.kills)], ['mDeaths', num(m.deaths)], ['mAssists', num(m.assists)], ['mKd', num(m.kd, 2)],
+    ['mAdr', m.adr != null ? num(m.adr, 1) : '–'], ['mHs', `${num(m.hsPercent)} %`], ['mMvps', m.mvps != null ? num(m.mvps) : '–'],
+  ].map(([k, v]) => `<div><dt>${esc(t(k))}</dt><dd>${esc(v)}</dd></div>`);
+  cells.push(`<div><dt>${esc(t('mElo'))}</dt><dd>${elo}</dd></div>`);
+  return `<dl class="match-stats">${cells.join('')}</dl>`;
+}
+
+function boardHtml(m, teams) {
+  if (teams === undefined) return `<p class="example">${esc(t('aLoading'))}</p>`;
+  if (!teams?.length) return `<p class="example">${esc(t('mNoBoard'))}</p>`;
+  const top = Math.max(...teams.flatMap((team) => team.players.map((p) => p.kills)));
+  const head = ['mPlayer', 'mK', 'mD', 'mA', 'mKd', 'mAdr', 'mHs'].map((k) => `<th scope="col">${esc(t(k))}</th>`).join('');
+  return `<div class="board">${teams.map((team) => `
+    <div class="team">
+    <div class="team-head${team.won ? ' won' : ''}"><span>${esc(teamName(team.name))}</span><b>${team.score ?? ''}</b></div>
+    <table>
+      <thead><tr>${head}</tr></thead>
+      <tbody>${team.players.map((p) => `<tr class="${p.playerId === m.playerId ? 'me' : ''}">
+        <td>${esc(p.nickname)}${p.kills === top ? `<span class="mvp" title="${esc(t('mTop'))}">★</span>` : ''}</td>
+        <td>${p.kills}</td><td>${p.deaths}</td><td>${p.assists}</td><td>${esc(num(p.kd, 2))}</td>
+        <td>${p.adr != null ? esc(num(p.adr, 1)) : '–'}</td><td>${p.hsPercent}</td></tr>`).join('')}</tbody>
+    </table></div>`).join('')}</div>`;
+}
+
+function matchRow(m) {
+  const isOpen = open.has(m.matchId);
+  const at = new Date(m.finishedAt);
+  const sub = [`K/D ${num(m.kd, 2)}`, m.adr != null ? `ADR ${num(m.adr, 1)}` : '', m.matchMvp ? `★ ${t('mTop')}` : ''].filter(Boolean).join(' · ');
+  const detail = `<div class="sub">${esc(t('mStats'))}</div>${matchStats(m)}
+    ${m.url ? `<a class="match-link" href="${esc(m.url)}" target="_blank" rel="noopener">${esc(t('mOpen'))} ↗</a>` : ''}
+    <div class="sub">${esc(t('mScoreboard'))}</div><div class="board-slot">${boardHtml(m, boards.has(m.matchId) ? boards.get(m.matchId) : m.scoreboard)}</div>`;
+  return `<li class="${isOpen ? 'open' : ''}" data-id="${esc(m.matchId)}">
+    <button class="run-row" type="button" aria-expanded="${isOpen}">
+      <span class="badge ${m.result}">${esc(m.result)}</span>
+      <span class="title"><strong>${esc(mapName(m.map || '–'))}<span class="score">${esc(m.score)}</span></strong><small>${esc(sub)}</small></span>
+      <span class="kda" title="${esc(t('mKda'))}">${m.kills} / ${m.deaths} / ${m.assists}</span>
+      ${eloCell(m)}
+      <span class="when">${esc(at.toLocaleDateString(locale(), { day: '2-digit', month: '2-digit', year: '2-digit' }))}<br>${esc(at.toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' }))}</span>
+      <i class="chev" aria-hidden="true"></i></button>
+    <div class="detail"${isOpen ? '' : ' hidden'}>${detail}</div></li>`;
+}
+
+function renderMatches() {
+  const list = $('matchList');
+  const all = matches ?? [];
+  // Beim ersten Öffnen ist das neueste Match aufgeklappt
+  if (!autoOpened && all.length) {
+    open.add(all[0].matchId);
+    autoOpened = true;
+  }
+  setText($('matchesCount'), all.length ? 'matchesCount' : '', { n: num(all.length) });
+  list.innerHTML = all.slice(0, shown).map(matchRow).join('') || `<li class="empty">${esc(t(data ? 'noMatches' : 'noPlayer'))}</li>`;
+  $('matchesMore').hidden = all.length <= shown;
+  for (const li of list.querySelectorAll('li.open')) loadBoard(li);
+}
+
+/** Scoreboard nachladen, wenn das Match noch keins gespeichert hat (ältere Matches) */
+async function loadBoard(li) {
+  const id = li.dataset.id;
+  const m = matches?.find((x) => x.matchId === id);
+  if (!m || m.scoreboard?.length || boards.has(id)) return;
+  boards.set(id, undefined);
+  let teams = null;
+  try {
+    const res = await fetch(`/api/matches/${encodeURIComponent(id)}/scoreboard`, { cache: 'no-store' });
+    if (res.ok) teams = await res.json();
+  } catch {}
+  boards.set(id, teams);
+  const slot = $('matchList').querySelector(`li[data-id="${CSS.escape(id)}"] .board-slot`);
+  if (slot) slot.innerHTML = boardHtml(m, teams);
+}
+
+$('matchList').addEventListener('click', (e) => {
+  const button = e.target.closest('.run-row');
+  if (!button) return;
+  const li = button.parentElement;
+  const isOpen = li.classList.toggle('open');
+  button.setAttribute('aria-expanded', String(isOpen));
+  li.querySelector('.detail').hidden = !isOpen;
+  if (isOpen) {
+    open.add(li.dataset.id);
+    loadBoard(li);
+  } else open.delete(li.dataset.id);
+});
+
+$('matchesMore').addEventListener('click', () => {
+  shown += PAGE;
+  renderMatches();
+});

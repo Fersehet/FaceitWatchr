@@ -59,6 +59,30 @@ export interface MatchResult {
   eloEstimated?: boolean;
   level: number;
   url: string;
+  /** Beide Teams mit allen Spielern, eigenes Team zuerst. Fehlt bei älteren Matches, wird beim ersten Aufklappen nachgeladen */
+  scoreboard?: ScoreboardTeam[];
+}
+
+/** Ein Spieler im Scoreboard eines Matches. */
+export interface ScoreboardPlayer {
+  playerId: string;
+  nickname: string;
+  kills: number;
+  deaths: number;
+  assists: number;
+  kd: number;
+  adr: number | null;
+  hsPercent: number;
+  mvps: number | null;
+}
+
+/** Ein Team im Scoreboard, Spieler nach Kills sortiert. */
+export interface ScoreboardTeam {
+  name: string;
+  /** Gewonnene Runden, null = unbekannt */
+  score: number | null;
+  won: boolean;
+  players: ScoreboardPlayer[];
 }
 
 /** Eintrag im Widget "Letzte Matches": Ergebnis und Elo-Änderung (null = unbekannt). */
@@ -99,6 +123,8 @@ export interface StatsSource {
   fetchEloHistory?(playerId: string, count: number): Promise<EloAfterMatch[]>;
   /** Ob der Spieler im Match die meisten Kills hatte; null = nicht ermittelbar. Für ältere gespeicherte Matches. */
   fetchMatchMvp?(matchId: string, playerId: string): Promise<boolean | null>;
+  /** Scoreboard eines Matches (eigenes Team zuerst); null = nicht ermittelbar. Für ältere gespeicherte Matches. */
+  fetchScoreboard?(matchId: string, playerId: string): Promise<ScoreboardTeam[] | null>;
 }
 
 /** Faceit CS2 Level-Grenzen (Mindest-Elo pro Level). */

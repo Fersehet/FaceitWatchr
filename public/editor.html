@@ -157,6 +157,12 @@
         </div>
       </div>
       <div id="levelTiles" class="levels" role="list"></div>
+      <section class="panel matches-panel" aria-labelledby="matchesHead">
+        <div class="panel-head"><span id="matchesHead" data-i18n="matchesHead">Gespeicherte Matches</span><span id="matchesCount"></span></div>
+        <p class="hint" data-i18n="matchesHint">Match anklicken für seine Stats und das Scoreboard.</p>
+        <ul id="matchList" class="runs"></ul>
+        <button id="matchesMore" type="button" class="more" data-i18n="matchesMore" hidden>Mehr zeigen</button>
+      </section>
     </div>
 
     <script type="module" src="/js/editor.js"></script>

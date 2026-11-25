@@ -442,6 +442,21 @@ export class Tracker extends EventEmitter {
     this.emit('state', this.state);
   }
 
+  /**
+   * Scoreboard eines gespeicherten Matches. Ältere Matches haben noch keins: dann einmal bei Faceit nachladen
+   * und mit dem Match speichern. null = Match unbekannt oder Faceit liefert keins.
+   */
+  async scoreboard(matchId: string) {
+    const match = this.storage.getMatch(matchId);
+    if (!match) return null;
+    if (match.scoreboard?.length) return match.scoreboard;
+    const teams = await this.source.fetchScoreboard?.(matchId, match.playerId).catch(() => null);
+    if (!teams?.length) return null;
+    match.scoreboard = teams;
+    this.storage.saveMatch(match);
+    return teams;
+  }
+
   private eloBefore(playerId: string, finishedAt: string): number | null {
     const before = this.storage.eloHistory(playerId).filter((h) => h.takenAt < finishedAt);
     return before.length ? before[before.length - 1].elo : null;
