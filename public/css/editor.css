@@ -299,7 +299,9 @@ li.open .chev { transform: rotate(225deg) translate(-2px, -2px); }
   .match-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .match-stats div { padding: 9px 10px; }
   .match-stats dd { font-size: 16px; }
-  .board .team { overflow-x: auto; }
+  /* Schmal: das ganze Scoreboard (beide Teams) lässt sich seitwärts schieben, Spalten bleiben lesbar */
+  .board { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .board .team { min-width: 460px; }
 }
 @media (prefers-reduced-motion: reduce) { .chev { transition: none; } }
 /* Schmal wie auf der Website: Verlauf, dann Level-Kacheln, dann die Session */

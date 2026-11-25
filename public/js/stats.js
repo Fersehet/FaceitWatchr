@@ -46,8 +46,14 @@ export async function loadStats() {
   const get = (url) => fetch(url, { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
   const [stats, list] = await Promise.all([get('/api/stats?count=20'), get('/api/matches?limit=1000')]);
   if (stats) data = stats;
-  if (list) matches = list;
-  renderStats();
+  // Die Liste nur neu zeichnen, wenn sich etwas geändert hat (sonst springen Fokus und aufgeklappte Zeilen bei jedem Update)
+  const sig = (l) => (l ? `${l.length}:${l[0]?.matchId}:${l.map((m) => m.eloChange).join(',')}` : '');
+  const changed = list && sig(list) !== sig(matches);
+  if (changed) matches = list;
+  renderChart();
+  renderSeason();
+  renderLevels();
+  if (changed || !$('matchList').childElementCount) renderMatches();
 }
 
 export function renderStats() {

@@ -450,12 +450,20 @@ export class Tracker extends EventEmitter {
     const match = this.storage.getMatch(matchId);
     if (!match) return null;
     if (match.scoreboard?.length) return match.scoreboard;
+    // Ohne Erfolg erst nach 10 Minuten wieder bei Faceit fragen
+    if (Date.now() - (this.boardMisses.get(matchId) ?? 0) < 10 * 60_000) return null;
     const teams = await this.source.fetchScoreboard?.(matchId, match.playerId).catch(() => null);
-    if (!teams?.length) return null;
-    match.scoreboard = teams;
-    this.storage.saveMatch(match);
+    if (!teams?.length) {
+      this.boardMisses.set(matchId, Date.now());
+      return null;
+    }
+    // Frisch lesen: während der Abfrage kann sich das Match geändert haben (z. B. Elo eingetragen)
+    const fresh = this.storage.getMatch(matchId) ?? match;
+    fresh.scoreboard = teams;
+    this.storage.saveMatch(fresh);
     return teams;
   }
+  private boardMisses = new Map<string, number>();
 
   private eloBefore(playerId: string, finishedAt: string): number | null {
     const before = this.storage.eloHistory(playerId).filter((h) => h.takenAt < finishedAt);

@@ -77,8 +77,9 @@ export class DemoSource implements StatsSource {
 
     const maps = ['de_mirage', 'de_inferno', 'de_nuke', 'de_ancient', 'de_anubis', 'de_dust2', 'de_train'];
     const kills = 10 + Math.floor(Math.random() * 20);
-    const deaths = 10 + Math.floor(Math.random() * 15);
     const lost = 3 + Math.floor(Math.random() * 9);
+    // Nicht öfter tot als Runden gespielt
+    const deaths = Math.min(13 + lost, 10 + Math.floor(Math.random() * 15));
     const id = `demo-${this.matches}`;
     this.played.unshift({
       matchId: id,
@@ -128,7 +129,7 @@ function demoScoreboard(matchId: string, playerId: string, nickname: string, kil
     rating: rating1(k, d, rounds, [k2, k3, k4, 0]),
     };
   };
-  const mate = (i: number, strong: boolean) => player(`demo-${i}`, names[i], 8 + Math.floor(rnd() * (strong ? 18 : 14)), 10 + Math.floor(rnd() * 12), Math.floor(rnd() * 8));
+  const mate = (i: number, strong: boolean) => player(`demo-${i}`, names[i], 8 + Math.floor(rnd() * (strong ? 18 : 14)), Math.min(rounds ?? 30, 10 + Math.floor(rnd() * 12)), Math.floor(rnd() * 8));
   const [ownScore, otherScore] = score.split('/').map((p) => Number.parseInt(p.trim(), 10));
   const rounds = (ownScore || 0) + (otherScore || 0) || null;
   const sort = (ps: ScoreboardPlayer[]) => ps.sort((a, b) => b.kills - a.kills || b.kd - a.kd);

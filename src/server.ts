@@ -142,10 +142,11 @@ app.put('/api/avatar-frame', async (req, res) => {
 });
 
 app.get('/api/state', (_req, res) => res.json(tracker.state));
-// Gespeicherte Matches, neueste zuerst
+// Gespeicherte Matches, neueste zuerst. Ohne Scoreboards (die holt der Editor einzeln beim Aufklappen);
+// ohne Login höchstens 100, angemeldet bis 1000 für die Match-Liste im Statistik-Tab
 app.get('/api/matches', (req, res) => {
-  const limit = Math.min(1000, Math.max(1, Number(req.query.limit) || 20));
-  res.json(storage.listMatches(tracker.state.player?.playerId ?? null, limit));
+  const limit = Math.min(auth.user(req) ? 1000 : 100, Math.max(1, Number(req.query.limit) || 20));
+  res.json(storage.listMatches(tracker.state.player?.playerId ?? null, limit).map(({ scoreboard: _, ...m }) => m));
 });
 
 // Auswertung für den Statistik-Tab (Elo-Verlauf, Session), nur aus gespeicherten Daten
