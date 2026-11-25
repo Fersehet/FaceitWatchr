@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events';
-import { LEVEL_THRESHOLDS, type MatchResult, type PlayerSnapshot, type RecentMatch, type StatsSource } from './faceit/types.ts';
+import { LEVEL_THRESHOLDS, type MatchResult, type PlayerSnapshot, type RecentMatch, type ScoreboardTeam, type StatsSource } from './faceit/types.ts';
 import type { Storage } from './storage/storage.ts';
 
 /** Beginn der aktuellen FACEIT-Season (Season 9), solange im Editor kein eigenes Datum gesetzt ist. */
@@ -115,6 +115,19 @@ const ELO_WAIT_POLLS = 3;
 /** Schlägt das Nachschlagen der Elo bei Faceit fehl, wird es frühestens nach 5 Minuten wiederholt. */
 const ELO_RETRY_MS = 5 * 60 * 1000;
 
+/** Abstand zwischen zwei nachgeladenen Scoreboards (ein Faceit-Abruf pro Schritt) */
+const BACKFILL_MS = 4000;
+/** Pause des Nachladens nach einem Fehler von Faceit */
+const BACKFILL_PAUSE_MS = 5 * 60_000;
+/** So oft ohne Scoreboard von Faceit, dann wird das Match nicht mehr nachgeladen */
+const BACKFILL_MAX_MISSES = 3;
+
+/** Rating des eigenen Spielers aus dem Scoreboard am Match merken, damit die Match-Liste es ohne Scoreboard zeigt */
+function withRating(m: MatchResult): MatchResult {
+  m.rating = m.scoreboard?.flatMap((t) => t.players).find((p) => p.playerId === m.playerId)?.rating ?? m.rating ?? null;
+  return m;
+}
+
 /** Fragt Faceit regelmäßig ab, speichert neue Stände und verteilt den Live-Zustand an alle Overlays. */
 export class Tracker extends EventEmitter {
   private timer: NodeJS.Timeout | null = null;
@@ -147,10 +160,14 @@ export class Tracker extends EventEmitter {
   start() {
     void this.poll();
     this.timer = setInterval(() => void this.poll(), this.intervalSeconds * 1000);
+    this.backfillTimer = setInterval(() => void this.backfillStep(), BACKFILL_MS);
   }
 
   stop() {
     if (this.timer) clearInterval(this.timer);
+    if (this.backfillTimer) clearInterval(this.backfillTimer);
+    this.timer = null;
+    this.backfillTimer = null;
   }
 
   async setNickname(nickname: string) {
@@ -163,6 +180,9 @@ export class Tracker extends EventEmitter {
     this.state.recentMatches = [];
     // Wartende Matches gehören zum alten Spieler und dürfen nicht die Elo des neuen bekommen
     this.pending = [];
+    // Nachladen der Scoreboards für den neuen Spieler gleich neu beginnen
+    this.backfillQueue = [];
+    this.backfillCheckedAt = 0;
     await this.poll();
   }
 
@@ -394,8 +414,10 @@ export class Tracker extends EventEmitter {
       try {
         const mvp = await this.source.fetchMatchMvp(m.matchId, m.playerId);
         if (mvp === null) continue;
-        m.matchMvp = mvp;
-        this.storage.saveMatch(m);
+        // Frisch lesen und nur den MVP ändern, damit inzwischen Gespeichertes (z. B. Scoreboard) erhalten bleibt
+        const fresh = this.storage.getMatch(m.matchId) ?? m;
+        fresh.matchMvp = m.matchMvp = mvp;
+        this.storage.saveMatch(fresh);
       } catch (err) {
         console.error('Match-MVP konnte nicht geladen werden:', err instanceof Error ? err.message : err);
       }
@@ -449,21 +471,79 @@ export class Tracker extends EventEmitter {
   async scoreboard(matchId: string) {
     const match = this.storage.getMatch(matchId);
     if (!match) return null;
-    if (match.scoreboard?.length) return match.scoreboard;
-    // Ohne Erfolg erst nach 10 Minuten wieder bei Faceit fragen
-    if (Date.now() - (this.boardMisses.get(matchId) ?? 0) < 10 * 60_000) return null;
-    const teams = await this.source.fetchScoreboard?.(matchId, match.playerId).catch(() => null);
-    if (!teams?.length) {
-      this.boardMisses.set(matchId, Date.now());
-      return null;
+    if (match.scoreboard?.length) {
+      // Ältere Versionen haben das Scoreboard ohne das Rating am Match gespeichert
+      if (match.rating === undefined) this.storage.saveMatch(withRating(match));
+      return match.scoreboard;
     }
-    // Frisch lesen: während der Abfrage kann sich das Match geändert haben (z. B. Elo eingetragen)
-    const fresh = this.storage.getMatch(matchId) ?? match;
-    fresh.scoreboard = teams;
-    this.storage.saveMatch(fresh);
-    return teams;
+    const miss = this.boardMisses.get(matchId);
+    // Ohne Erfolg erst nach 10 Minuten wieder bei Faceit fragen
+    if (miss && Date.now() - miss.at < 10 * 60_000) return null;
+    // Gleiches Match wird schon abgefragt (Hintergrund und Klick gleichzeitig): auf dieselbe Antwort warten
+    const running = this.boardLoads.get(matchId);
+    if (running) return running;
+    const load = (async () => {
+      let teams: ScoreboardTeam[] | null = null;
+      try {
+        teams = (await this.source.fetchScoreboard?.(matchId, match.playerId)) ?? null;
+      } catch {
+        this.backfillPauseUntil = Date.now() + BACKFILL_PAUSE_MS;
+      }
+      if (!teams?.length) {
+        this.boardMisses.set(matchId, { at: Date.now(), count: (miss?.count ?? 0) + 1 });
+        return null;
+      }
+      // Frisch lesen: während der Abfrage kann sich das Match geändert haben (z. B. Elo eingetragen)
+      const fresh = this.storage.getMatch(matchId) ?? match;
+      fresh.scoreboard = teams;
+      this.storage.saveMatch(withRating(fresh));
+      return teams;
+    })();
+    this.boardLoads.set(matchId, load);
+    try {
+      return await load;
+    } finally {
+      this.boardLoads.delete(matchId);
+    }
   }
-  private boardMisses = new Map<string, number>();
+  private boardMisses = new Map<string, { at: number; count: number }>();
+  private boardLoads = new Map<string, Promise<ScoreboardTeam[] | null>>();
+
+  /**
+   * Scoreboards (und damit das Rating) älterer Matches im Hintergrund nachladen: ein Match pro Schritt,
+   * damit Faceits Abruf-Limit nicht greift. Die Liste der fehlenden wird höchstens alle 10 Minuten neu ermittelt.
+   */
+  private backfillTimer: NodeJS.Timeout | null = null;
+  private backfillQueue: string[] = [];
+  private backfillCheckedAt = 0;
+  private backfilling = false;
+  /** Nach einem Fehler von Faceit (z. B. Abruf-Limit) eine Weile nichts nachladen */
+  private backfillPauseUntil = 0;
+  private async backfillStep() {
+    const playerId = this.state.player?.playerId;
+    if (this.backfilling || !playerId || !this.source.fetchScoreboard) return;
+    if (this.state.error || Date.now() < this.backfillPauseUntil) return;
+    if (!this.backfillQueue.length) {
+      if (Date.now() - this.backfillCheckedAt < 10 * 60_000) return;
+      this.backfillCheckedAt = Date.now();
+      const stored = this.storage.listMatches(playerId, 1000);
+      // Scoreboard schon da, nur das Rating fehlt (ältere Version): ohne Faceit direkt eintragen
+      for (const m of stored) if (m.scoreboard?.length && m.rating === undefined) this.storage.saveMatch(withRating(m));
+      // Matches, für die Faceit dreimal kein Scoreboard hatte, nicht mehr abfragen
+      this.backfillQueue = stored
+        .filter((m) => !m.scoreboard?.length && (this.boardMisses.get(m.matchId)?.count ?? 0) < BACKFILL_MAX_MISSES)
+        .map((m) => m.matchId);
+      if (!this.backfillQueue.length) return;
+    }
+    this.backfilling = true;
+    try {
+      await this.scoreboard(this.backfillQueue.shift()!);
+    } catch {
+      // nächster Versuch beim nächsten Durchlauf
+    } finally {
+      this.backfilling = false;
+    }
+  }
 
   private eloBefore(playerId: string, finishedAt: string): number | null {
     const before = this.storage.eloHistory(playerId).filter((h) => h.takenAt < finishedAt);
@@ -496,7 +576,10 @@ export class Tracker extends EventEmitter {
         m.eloAfter = history[i].elo;
         m.eloBefore = history[i].elo - delta;
         m.eloChange = delta;
-        this.storage.saveMatch(m);
+        // Frisch lesen und nur die Elo ändern, damit ein inzwischen nachgeladenes Scoreboard nicht verloren geht
+        const fresh = this.storage.getMatch(m.matchId) ?? m;
+        Object.assign(fresh, { eloAfter: m.eloAfter, eloBefore: m.eloBefore, eloChange: delta });
+        this.storage.saveMatch(fresh);
       }
     }
 
