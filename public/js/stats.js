@@ -275,7 +275,8 @@ function renderMatches() {
     input.min = dayKey(matches[matches.length - 1].finishedAt);
     input.max = dayKey(matches[0].finishedAt);
   }
-  input.value = day;
+  // Nicht überschreiben, während jemand im Feld ein Datum tippt
+  if (input.value !== day && document.activeElement !== input) input.value = day;
   $('matchDayAll').hidden = !day;
   // Beim ersten Öffnen ist das neueste Match aufgeklappt
   if (!autoOpened && all.length) {
@@ -286,7 +287,10 @@ function renderMatches() {
   const empty = day ? 'matchesNoDay' : data ? 'noMatches' : 'noPlayer';
   const pages = Math.max(1, Math.ceil(all.length / perPage));
   page = Math.min(page, pages - 1);
+  // Fokus in der Liste merken: das Neuzeichnen (z. B. neues Rating im Hintergrund) soll ihn nicht verlieren
+  const focusId = list.contains(document.activeElement) ? document.activeElement.closest('li')?.dataset.id : null;
   list.innerHTML = all.slice(page * perPage, (page + 1) * perPage).map(matchRow).join('') || `<li class="empty">${esc(t(empty))}</li>`;
+  if (focusId) list.querySelector(`li[data-id="${CSS.escape(focusId)}"] .run-row`)?.focus({ preventScroll: true });
   $('matchPager').hidden = !all.length;
   $('pageInfo').textContent = t('pageOf', { a: page + 1, b: pages });
   $('pagePrev').disabled = page === 0;
@@ -338,8 +342,10 @@ $('matchDayAll').addEventListener('click', () => {
 
 // Blättern: danach an den Anfang der Liste, damit man nicht unten auf der neuen Seite landet
 function turn(delta) {
-  page += delta;
+  page = Math.max(0, page + delta);
   renderMatches();
+  // Wird der gedrückte Pfeil deaktiviert (erste/letzte Seite), den Fokus auf den anderen setzen
+  if (document.activeElement?.disabled || document.activeElement === document.body) (delta > 0 ? $('pagePrev') : $('pageNext')).focus();
   $('matchList').scrollIntoView({ block: 'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
 }
 $('pagePrev').addEventListener('click', () => turn(-1));

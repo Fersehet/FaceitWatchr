@@ -25,7 +25,7 @@ Build your own Faceit overlays (Elo, level, K/D, session stats, …) for OBS and
 
 **Statistics:** Elo history of your last 20 matches, the current season and all Faceit levels at a glance.
 
-**Saved matches:** below that, every match FaceitWatchr has saved. Click one to see your stats in that match (K/D/A, ADR, HS %, MVPs, rating, Elo after) and the scoreboard of both teams. The rating is HLTV Rating 1.0, calculated from kills, deaths, rounds and multi-kills (1.00 = average); Faceit doesn't show a rating itself. Pick a day to see only the matches of that day. The list is split into pages with arrows at the bottom; choose 10, 25, 50 or 100 matches per page, and the editor remembers it. Matches saved before this version get their scoreboard and rating from Faceit in the background, a few seconds per match, so the rating shows up in the list without opening each match and stays after a reload.
+**Saved matches:** below that, every match FaceitWatchr has saved. Click one to see your stats in that match (K/D/A, ADR, HS %, MVPs, rating, Elo after) and the scoreboard of both teams. The rating is HLTV Rating 1.0, calculated from kills, deaths, rounds and multi-kills (1.00 = average); Faceit doesn't show a rating itself. Pick a day to see only the matches of that day. The list is split into pages with arrows at the bottom; choose 10, 25, 50 or 100 matches per page, and your browser remembers it. Matches saved before this version get their scoreboard and rating from Faceit in the background, a few seconds per match, so the rating shows up in the list without opening each match and stays after a reload.
 
 ![Statistics view with Elo history, season, levels and the saved matches with one match opened](docs/screenshots/stats.png)
 

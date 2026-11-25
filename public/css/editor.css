@@ -297,6 +297,7 @@ li.open .chev { transform: rotate(225deg) translate(-2px, -2px); }
 .page-btn:disabled { opacity: .35; cursor: default; }
 .per-page { display: flex; align-items: center; gap: 8px; margin-left: 12px; color: var(--muted); font-size: 13px; }
 .per-page select { font-family: var(--f-mono); }
+@media (max-width: 480px) { .per-page { margin-left: 0; flex-basis: 100%; justify-content: center; } }
 .match-filter { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: -4px 0 14px; }
 .match-filter label { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 13px; }
 .match-filter input { color-scheme: dark; font-family: var(--f-mono); font-size: 13px; }
